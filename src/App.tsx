@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import BuilderPage from '@/builder/BuilderPage'
+import RunnerPage from '@/runner/RunnerPage'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 
@@ -150,7 +151,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/builder/*" element={<BuilderPage />} />
-        <Route path="/runner/*" element={<RunnerPlaceholder />} />
+        <Route path="/runner/*" element={<RunnerPage />} />
       </Routes>
     </BrowserRouter>
   )
