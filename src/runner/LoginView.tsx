@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRunner } from '@/runner/runnerContext';
-import { Button } from '@/components/ui/button';
 import type { RunPacket, CharacterSheet } from '@/types';
+import { importRunPacket, listBuilderDrafts, loadBuilderDraft } from '@/engine/runPacketCodec';
 
 // ─── Demo data ────────────────────────────────────────────────────────────────
 
@@ -106,22 +106,73 @@ export default function LoginView() {
   const [runPacketError, setRunPacketError] = useState('');
   const [characterError, setCharacterError] = useState('');
 
+  // .mxrun decrypt flow
+  const [pendingMxrunFile, setPendingMxrunFile] = useState<File | null>(null);
+  const [mxrunPassphrase, setMxrunPassphrase] = useState('');
+  const [mxrunDecrypting, setMxrunDecrypting] = useState(false);
+  const [mxrunError, setMxrunError] = useState('');
+
+  // Source tracking and builder drawer
+  const [runPacketSource, setRunPacketSource] = useState<'mxrun' | 'json' | 'builder' | null>(null);
+  const [builderDrawerOpen, setBuilderDrawerOpen] = useState(false);
+
   const runPacketRef = useRef<HTMLInputElement>(null);
   const characterRef = useRef<HTMLInputElement>(null);
 
   function handleRunPacketFile(file: File) {
     setRunPacketError('');
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const parsed = JSON.parse(e.target?.result as string) as RunPacket;
-        setRunPacket(parsed);
-        setRunPacketName(file.name);
-      } catch {
-        setRunPacketError('Invalid JSON file');
-      }
-    };
-    reader.readAsText(file);
+    setRunPacket(null);
+    setRunPacketName(file.name);
+    setRunPacketSource(null);
+
+    if (file.name.endsWith('.mxrun')) {
+      setPendingMxrunFile(file);
+      setMxrunPassphrase('');
+      setMxrunError('');
+    } else {
+      // Plain JSON path
+      setPendingMxrunFile(null);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target?.result as string) as RunPacket;
+          setRunPacket(parsed);
+          setRunPacketSource('json');
+        } catch {
+          setRunPacketError('Invalid JSON file');
+        }
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  async function handleDecrypt() {
+    if (!pendingMxrunFile || !mxrunPassphrase) return;
+    setMxrunDecrypting(true);
+    setMxrunError('');
+    try {
+      const packet = await importRunPacket(pendingMxrunFile, mxrunPassphrase);
+      setRunPacket(packet);
+      setRunPacketSource('mxrun');
+      setRunPacketName(pendingMxrunFile.name);
+      setPendingMxrunFile(null);
+      setMxrunPassphrase('');
+    } catch (e) {
+      setMxrunError(String(e).replace('Error: ', ''));
+    } finally {
+      setMxrunDecrypting(false);
+    }
+  }
+
+  function loadFromBuilder(id: string) {
+    const draft = loadBuilderDraft(id);
+    if (!draft) return;
+    setRunPacket(draft as RunPacket);
+    setRunPacketSource('builder');
+    setRunPacketName(draft.name);
+    setRunPacketError('');
+    setPendingMxrunFile(null);
+    setBuilderDrawerOpen(false);
   }
 
   function handleCharacterFile(file: File) {
@@ -142,10 +193,13 @@ export default function LoginView() {
   function loadDemo() {
     setRunPacket(DEMO_RUN_PACKET);
     setRunPacketName('demo-run-packet.json');
+    setRunPacketSource('json');
     setCharacter(DEMO_CHARACTER);
     setCharacterFileName('ghost-decker.json');
     setRunPacketError('');
     setCharacterError('');
+    setPendingMxrunFile(null);
+    setMxrunError('');
   }
 
   function jackIn() {
@@ -154,6 +208,14 @@ export default function LoginView() {
   }
 
   const canJackIn = runPacket !== null && character !== null;
+  const builderDrafts = builderDrawerOpen ? listBuilderDrafts() : [];
+
+  // Source badge label
+  const sourceBadge =
+    runPacketSource === 'mxrun' ? 'via .mxrun' :
+    runPacketSource === 'json' ? 'via .json' :
+    runPacketSource === 'builder' ? 'via Builder' :
+    null;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden scanlines font-mono">
@@ -188,9 +250,11 @@ export default function LoginView() {
           {/* Run Packet */}
           <UploadPanel
             title="RUN PACKET"
-            description="GM-exported run packet JSON"
+            description="GM-exported run packet (.json or .mxrun)"
             fileName={runPacketName}
-            fileLabel={runPacket ? runPacket.name : null}
+            fileLabel={runPacket ? runPacket.name : (pendingMxrunFile ? pendingMxrunFile.name : null)}
+            fileLabelNote={sourceBadge}
+            pendingDecrypt={pendingMxrunFile !== null}
             error={runPacketError}
             onClick={() => runPacketRef.current?.click()}
             onDrop={(e) => {
@@ -202,11 +266,13 @@ export default function LoginView() {
           <input
             ref={runPacketRef}
             type="file"
-            accept=".json"
+            accept=".json,.mxrun"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) handleRunPacketFile(file);
+              // Reset input so re-selecting same file fires onChange
+              e.target.value = '';
             }}
           />
 
@@ -216,6 +282,8 @@ export default function LoginView() {
             description="Character sheet JSON"
             fileName={characterFileName}
             fileLabel={character ? `${character.streetName} // ${character.deck.name}` : null}
+            fileLabelNote={null}
+            pendingDecrypt={false}
             error={characterError}
             onClick={() => characterRef.current?.click()}
             onDrop={(e) => {
@@ -232,8 +300,100 @@ export default function LoginView() {
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) handleCharacterFile(file);
+              e.target.value = '';
             }}
           />
+        </div>
+
+        {/* Passphrase section — shown only when a .mxrun file is pending */}
+        {pendingMxrunFile !== null && (
+          <div
+            className="border p-4 flex flex-col gap-3"
+            style={{ borderColor: 'var(--color-accent, var(--color-primary))' }}
+          >
+            <div className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--color-accent, var(--color-primary))' }}>
+              Access Code Required
+            </div>
+            <div className="flex gap-2 items-center">
+              <input
+                type="password"
+                value={mxrunPassphrase}
+                onChange={(e) => setMxrunPassphrase(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleDecrypt(); }}
+                placeholder="Enter access code…"
+                disabled={mxrunDecrypting}
+                className="flex-1 bg-transparent border px-3 py-2 text-xs font-mono tracking-wider outline-none disabled:opacity-50"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-foreground)',
+                }}
+              />
+              <button
+                onClick={handleDecrypt}
+                disabled={!mxrunPassphrase || mxrunDecrypting}
+                className="px-4 py-2 text-xs font-mono font-bold tracking-widest border transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{
+                  borderColor: 'var(--color-accent, var(--color-primary))',
+                  color: 'var(--color-accent, var(--color-primary))',
+                  backgroundColor: 'color-mix(in srgb, var(--color-accent, var(--color-primary)) 10%, transparent)',
+                }}
+              >
+                {mxrunDecrypting ? 'Decrypting…' : '[ DECRYPT ]'}
+              </button>
+            </div>
+            {mxrunError && (
+              <div className="text-[11px]" style={{ color: '#ef4444' }}>
+                {mxrunError}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Builder drawer */}
+        <div className="flex flex-col gap-0">
+          <button
+            onClick={() => setBuilderDrawerOpen((v) => !v)}
+            className="text-xs tracking-wider text-left px-0 py-1 transition-colors"
+            style={{ color: 'var(--color-muted-foreground)' }}
+          >
+            [ {builderDrawerOpen ? '▾' : '▸'} Load from Builder (same device) ]
+          </button>
+          {builderDrawerOpen && (
+            <div
+              className="border mt-1 p-3 flex flex-col gap-2"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              {builderDrafts.length === 0 ? (
+                <div className="text-[11px] text-[var(--color-muted-foreground)]">No saved drafts found.</div>
+              ) : (
+                builderDrafts.map((draft) => (
+                  <button
+                    key={draft.id}
+                    onClick={() => loadFromBuilder(draft.id)}
+                    className="flex items-center justify-between text-left px-3 py-2 border transition-all"
+                    style={{
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-foreground)',
+                      backgroundColor: 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-primary)';
+                      (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-border)';
+                      (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-foreground)';
+                    }}
+                  >
+                    <span className="text-xs font-bold tracking-wide">{draft.name}</span>
+                    <span className="text-[10px] text-[var(--color-muted-foreground)]">
+                      {new Date(draft.createdAt).toLocaleDateString()}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -274,12 +434,14 @@ export default function LoginView() {
 // ─── Upload Panel ─────────────────────────────────────────────────────────────
 
 function UploadPanel({
-  title, description, fileName, fileLabel, error, onClick, onDrop,
+  title, description, fileName, fileLabel, fileLabelNote, pendingDecrypt, error, onClick, onDrop,
 }: {
   title: string;
   description: string;
   fileName: string;
   fileLabel: string | null;
+  fileLabelNote: string | null;
+  pendingDecrypt: boolean;
   error: string;
   onClick: () => void;
   onDrop: (e: React.DragEvent) => void;
@@ -298,8 +460,14 @@ function UploadPanel({
       onDrop={(e) => { setDragOver(false); onDrop(e); }}
       className="border p-4 flex flex-col gap-2 cursor-pointer transition-all min-h-[120px] select-none"
       style={{
-        borderColor: error ? '#ef4444' : dragOver ? 'var(--color-primary)' : isLoaded ? 'var(--color-primary)' : 'var(--color-border)',
-        backgroundColor: dragOver ? 'color-mix(in srgb, var(--color-primary) 8%, transparent)' : isLoaded ? 'color-mix(in srgb, var(--color-primary) 5%, transparent)' : 'transparent',
+        borderColor: error ? '#ef4444'
+          : dragOver ? 'var(--color-primary)'
+          : pendingDecrypt ? 'var(--color-accent, var(--color-primary))'
+          : isLoaded ? 'var(--color-primary)'
+          : 'var(--color-border)',
+        backgroundColor: dragOver ? 'color-mix(in srgb, var(--color-primary) 8%, transparent)'
+          : isLoaded ? 'color-mix(in srgb, var(--color-primary) 5%, transparent)'
+          : 'transparent',
       }}
     >
       <div className="text-[10px] tracking-widest uppercase" style={{ color: isLoaded ? 'var(--color-primary)' : 'var(--color-muted-foreground)' }}>
@@ -307,9 +475,26 @@ function UploadPanel({
       </div>
       {isLoaded ? (
         <>
-          <div className="text-xs font-bold" style={{ color: 'var(--color-foreground)' }}>{fileLabel}</div>
+          <div className="flex items-center gap-2">
+            <div className="text-xs font-bold" style={{ color: 'var(--color-foreground)' }}>{fileLabel}</div>
+            {fileLabelNote && (
+              <span
+                className="text-[9px] px-1 py-0.5 border tracking-wide"
+                style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+              >
+                {fileLabelNote}
+              </span>
+            )}
+          </div>
           <div className="text-[10px] text-[var(--color-muted-foreground)] truncate">{fileName}</div>
         </>
+      ) : pendingDecrypt ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-1 py-2">
+          <div className="text-[10px] tracking-widest" style={{ color: 'var(--color-accent, var(--color-primary))' }}>
+            ENCRYPTED — enter access code below
+          </div>
+          <div className="text-[9px] text-[var(--color-muted-foreground)] truncate">{fileName}</div>
+        </div>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center gap-1 py-2">
           <div className="text-2xl opacity-30" style={{ color: 'var(--color-primary)' }}>↑</div>
