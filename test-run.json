@@ -1,0 +1,486 @@
+{
+  "id": "test-run-001",
+  "name": "Test Network — SAN → Green → Orange → Red",
+  "description": "Three-host test network for runner phase testing. Green Easy entry point escalates to a Red Hard target.",
+  "version": "1.0",
+  "createdAt": 1750000000000,
+  "entryHostIds": ["san-entry"],
+  "rtg": null,
+
+  "hosts": [
+
+    {
+      "id": "san-entry",
+      "name": "Public SAN",
+      "description": "Standard subscriber access node. Publicly listed, no special defenses.",
+      "metaphor": "A plain grey corporate lobby terminal.",
+      "nodeType": "san",
+      "securityCode": "Green",
+      "securityValue": 4,
+      "subsystems": { "access": 4, "files": 0, "slave": 0, "index": 0, "control": 0 },
+      "subsystemVariants": [],
+      "securitySheaf": [],
+      "paydata": [],
+      "files": [],
+      "slaves": [],
+      "nextHostIds": ["host-green"],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-green",
+      "name": "Ares Logistics Node",
+      "description": "Regional logistics host — shipping manifests, routing data, low-grade paydata. Entry-level corporate security.",
+      "metaphor": "A busy warehouse floor with cargo containers and forklifts rendered as data constructs.",
+      "nodeType": "host",
+      "securityCode": "Green",
+      "securityValue": 5,
+      "intrusionDifficulty": "Easy",
+      "subsystems": { "access": 4, "files": 4, "slave": 3, "index": 4, "control": 3 },
+      "subsystemVariants": [
+        { "id": "sv-green-1", "subsystem": "files", "modifier": 2, "description": "Restricted cargo manifests +2" }
+      ],
+      "securitySheaf": [
+        {
+          "id": "step-g-1",
+          "triggerValue": 5,
+          "ic": [
+            { "id": "ic-g-1a", "type": "Probe", "category": "ReactiveWhite", "rating": 4, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 4 }
+          ]
+        },
+        {
+          "id": "step-g-2",
+          "triggerValue": 10,
+          "ic": [
+            { "id": "ic-g-2a", "type": "Probe", "category": "ReactiveWhite", "rating": 5, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 5 },
+            { "id": "ic-g-2b", "type": "Scout", "category": "ProactiveWhite", "rating": 4, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 4 }
+          ]
+        },
+        {
+          "id": "step-g-3",
+          "triggerValue": 15,
+          "ic": [],
+          "alertChange": "passive",
+          "gmNotes": "Passive Alert — on-call security decker paged."
+        },
+        {
+          "id": "step-g-4",
+          "triggerValue": 20,
+          "ic": [
+            { "id": "ic-g-4a", "type": "TarBaby", "category": "ReactiveWhite", "rating": 4, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 4 },
+            { "id": "ic-g-4b", "type": "Trace", "category": "ReactiveWhite", "rating": 5, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 5 }
+          ]
+        },
+        {
+          "id": "step-g-5",
+          "triggerValue": 26,
+          "ic": [
+            { "id": "ic-g-5a", "type": "Blaster", "category": "ProactiveGray", "rating": 5, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 5 }
+          ]
+        },
+        {
+          "id": "step-g-6",
+          "triggerValue": 32,
+          "ic": [],
+          "alertChange": "active",
+          "gmNotes": "Active Alert — security decker online, physical security notified."
+        }
+      ],
+      "paydata": [
+        {
+          "id": "pd-green-1",
+          "name": "Ares Seattle Shipping Routes Q3",
+          "value": 1200,
+          "dataSizeMp": 40,
+          "defense": "none",
+          "gmNotes": "Routing data for Ares ground shipments through the Barrens. Useful to smugglers."
+        },
+        {
+          "id": "pd-green-2",
+          "name": "Employee Roster — Warehouse Shift Staff",
+          "value": 800,
+          "dataSizeMp": 20,
+          "defense": "none",
+          "gmNotes": "Names, credstick numbers, and shift schedules for 47 warehouse workers."
+        }
+      ],
+      "files": [
+        {
+          "id": "file-green-1",
+          "name": "manifest_2057-Q3-NW.dat",
+          "description": "Quarterly shipping manifest for the Pacific Northwest corridor. Cargo types, weights, truck IDs.",
+          "sizeMp": 18,
+          "defense": "none",
+          "isPaydata": false
+        },
+        {
+          "id": "file-green-2",
+          "name": "security_access_log_Aug.dat",
+          "description": "Access log for the Seattle warehouse, last 30 days. Badge swipes and anomalies flagged.",
+          "sizeMp": 6,
+          "defense": "encrypted",
+          "isPaydata": false,
+          "gmNotes": "Reveals that two employees have been accessing after-hours — could be the inside contact the team is looking for."
+        },
+        {
+          "id": "file-green-3",
+          "name": "routing_contracts_2057.dat",
+          "description": "Third-party routing contracts — carrier names, rates, routes.",
+          "sizeMp": 30,
+          "defense": "none",
+          "isPaydata": true,
+          "paydataValue": 1200
+        }
+      ],
+      "slaves": [
+        {
+          "id": "slave-green-1",
+          "name": "Loading Dock Camera Array",
+          "type": "SecurityCamera",
+          "description": "8-camera array covering all loading docks and the truck yard.",
+          "controlEffect": "Full visual feed of all loading dock activity. Can pan, tilt, and loop footage.",
+          "isEncrypted": false,
+          "hasBomb": false
+        }
+      ],
+      "nextHostIds": ["host-orange"],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-orange",
+      "name": "Ares Regional Security Hub",
+      "description": "Mid-tier security coordination host. Alarm systems, personnel files, facility schematics. Real IC on patrol.",
+      "metaphor": "A sterile corporate command center. Holographic screens cycle status feeds. IC appear as uniformed security officers.",
+      "nodeType": "host",
+      "securityCode": "Orange",
+      "securityValue": 7,
+      "intrusionDifficulty": "Average",
+      "subsystems": { "access": 6, "files": 6, "slave": 5, "index": 6, "control": 5 },
+      "subsystemVariants": [
+        { "id": "sv-orange-1", "subsystem": "slave", "modifier": 2, "description": "Armed turret control circuits +2" },
+        { "id": "sv-orange-2", "subsystem": "files", "modifier": -1, "description": "Public-facing incident reports -1" }
+      ],
+      "securitySheaf": [
+        {
+          "id": "step-o-1",
+          "triggerValue": 4,
+          "ic": [
+            { "id": "ic-o-1a", "type": "Probe", "category": "ReactiveWhite", "rating": 6, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 6 }
+          ]
+        },
+        {
+          "id": "step-o-2",
+          "triggerValue": 8,
+          "ic": [
+            { "id": "ic-o-2a", "type": "Scout", "category": "ProactiveWhite", "rating": 6, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 6 },
+            { "id": "ic-o-2b", "type": "Trace", "category": "ReactiveWhite", "rating": 7, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 7 }
+          ]
+        },
+        {
+          "id": "step-o-3",
+          "triggerValue": 13,
+          "ic": [
+            { "id": "ic-o-3a", "type": "ProbeWithTrap", "category": "ReactiveGray", "rating": 6, "options": ["Trap"], "isConstruct": false, "status": "dormant", "currentRating": 6 }
+          ]
+        },
+        {
+          "id": "step-o-4",
+          "triggerValue": 18,
+          "ic": [],
+          "alertChange": "passive",
+          "gmNotes": "Passive Alert — senior security decker Marcus Kane goes active. Ripper deployed."
+        },
+        {
+          "id": "step-o-5",
+          "triggerValue": 19,
+          "ic": [
+            { "id": "ic-o-5a", "type": "Ripper", "category": "ProactiveGray", "rating": 7, "options": [], "targetAttribute": "Evasion", "isConstruct": false, "status": "dormant", "currentRating": 7 }
+          ]
+        },
+        {
+          "id": "step-o-6",
+          "triggerValue": 24,
+          "ic": [
+            { "id": "ic-o-6a", "type": "Blaster", "category": "ProactiveGray", "rating": 7, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 7 },
+            { "id": "ic-o-6b", "type": "TarPit", "category": "ReactiveGray", "rating": 6, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 6 }
+          ]
+        },
+        {
+          "id": "step-o-7",
+          "triggerValue": 29,
+          "ic": [],
+          "alertChange": "active",
+          "gmNotes": "Active Alert — hardline alert to physical security. All non-essential access cut."
+        },
+        {
+          "id": "step-o-8",
+          "triggerValue": 35,
+          "ic": [
+            {
+              "id": "ic-o-8a",
+              "type": "Construct",
+              "category": "ProactiveGray",
+              "rating": 9,
+              "options": [],
+              "isConstruct": true,
+              "status": "dormant",
+              "currentRating": 9,
+              "constructPayload": [
+                { "id": "ic-o-8b", "type": "Killer", "category": "ProactiveWhite", "rating": 8, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 8, "damageCode": "S" },
+                { "id": "ic-o-8c", "type": "Probe", "category": "ReactiveWhite", "rating": 6, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 6 }
+              ]
+            }
+          ],
+          "gmNotes": "Construct-9 (Killer-8, Probe-6) — last resort before shutdown."
+        }
+      ],
+      "paydata": [
+        {
+          "id": "pd-orange-1",
+          "name": "Ares Seattle Facility Schematics — Level 3 Classified",
+          "value": 8500,
+          "dataSizeMp": 55,
+          "defense": "scramble",
+          "gmNotes": "Full schematics for the Redmond facility including server room locations and guard rotation schedules."
+        },
+        {
+          "id": "pd-orange-2",
+          "name": "Internal Incident Report — Experiment 7-Alpha",
+          "value": 15000,
+          "dataSizeMp": 12,
+          "defense": "scramble",
+          "gmNotes": "Classified incident report on a failed weapons test. Corporate espionage goldmine. Fixer contact Haruki will pay premium."
+        }
+      ],
+      "files": [
+        {
+          "id": "file-orange-1",
+          "name": "personnel_dossiers_security.dat",
+          "description": "Dossiers for all Ares security personnel at the Seattle complex. Photos, home addresses, personal data.",
+          "sizeMp": 45,
+          "defense": "encrypted",
+          "isPaydata": true,
+          "paydataValue": 5000,
+          "gmNotes": "Rival corp would pay well for this."
+        },
+        {
+          "id": "file-orange-2",
+          "name": "alarm_grid_config_2057.dat",
+          "description": "Active configuration for the facility alarm grid — sensor placements, dead zones, override codes.",
+          "sizeMp": 8,
+          "defense": "encryptedAndBomb",
+          "bombRating": 6,
+          "isPaydata": false,
+          "gmNotes": "The team's fixer specifically asked for this."
+        },
+        {
+          "id": "file-orange-3",
+          "name": "experiment_7alpha_report.dat",
+          "description": "Classified internal incident report. Heavy redaction on the public summary version.",
+          "sizeMp": 12,
+          "defense": "encrypted",
+          "isPaydata": true,
+          "paydataValue": 15000
+        }
+      ],
+      "slaves": [
+        {
+          "id": "slave-orange-1",
+          "name": "Level 3 Door Lock Grid",
+          "type": "DoorLock",
+          "description": "Magnetic lock array for 22 secure doors on Level 3. Status shows all currently locked.",
+          "controlEffect": "Can open/close/jam any individual door on Level 3. Useful for trapping guards or clearing a path.",
+          "isEncrypted": true,
+          "encryptionRating": 5,
+          "hasBomb": false
+        },
+        {
+          "id": "slave-orange-2",
+          "name": "Automated Sentry Turret — Docks",
+          "type": "Turret",
+          "description": "Ares Paladin autoturret covering the vehicle bay. Currently in passive mode.",
+          "controlEffect": "Can switch to active/passive, override targeting, or disable safety interlock entirely.",
+          "isEncrypted": true,
+          "encryptionRating": 7,
+          "hasBomb": true,
+          "bombRating": 6,
+          "gmNotes": "Data bomb will trigger if tampered with — treat as Data Bomb 6 attack."
+        }
+      ],
+      "nextHostIds": ["host-red"],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-red",
+      "name": "Ares Project Vault — Black Site Alpha",
+      "description": "Top-tier research host. Black IC on standby. Everything here is need-to-know. The target data lives here.",
+      "metaphor": "A pitch-black void pierced by red grid lines. Floating data constructs look like caged animals. IC appear as armored drones with weapon locks visible.",
+      "nodeType": "host",
+      "securityCode": "Red",
+      "securityValue": 11,
+      "intrusionDifficulty": "Hard",
+      "subsystems": { "access": 9, "files": 9, "slave": 8, "index": 9, "control": 8 },
+      "subsystemVariants": [
+        { "id": "sv-red-1", "subsystem": "files", "modifier": 3, "description": "Project Lazarus archive +3" },
+        { "id": "sv-red-2", "subsystem": "access", "modifier": 2, "description": "Hardened inner SAN +2" }
+      ],
+      "shutdownThreshold": 25,
+      "securitySheaf": [
+        {
+          "id": "step-r-1",
+          "triggerValue": 3,
+          "ic": [
+            { "id": "ic-r-1a", "type": "Probe", "category": "ReactiveWhite", "rating": 9, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 9 }
+          ]
+        },
+        {
+          "id": "step-r-2",
+          "triggerValue": 6,
+          "ic": [
+            { "id": "ic-r-2a", "type": "Scout", "category": "ProactiveWhite", "rating": 9, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 9 },
+            { "id": "ic-r-2b", "type": "TraceWithTrap", "category": "ReactiveGray", "rating": 9, "options": ["Trap"], "isConstruct": false, "status": "dormant", "currentRating": 9 }
+          ]
+        },
+        {
+          "id": "step-r-3",
+          "triggerValue": 9,
+          "ic": [
+            { "id": "ic-r-3a", "type": "Killer", "category": "ProactiveWhite", "rating": 8, "options": ["Shield"], "isConstruct": false, "status": "dormant", "currentRating": 8, "damageCode": "S" }
+          ]
+        },
+        {
+          "id": "step-r-4",
+          "triggerValue": 12,
+          "ic": [
+            { "id": "ic-r-4a", "type": "Crippler", "category": "ProactiveWhite", "rating": 8, "options": [], "targetAttribute": "Masking", "isConstruct": false, "status": "dormant", "currentRating": 8 }
+          ]
+        },
+        {
+          "id": "step-r-5",
+          "triggerValue": 15,
+          "ic": [],
+          "alertChange": "passive",
+          "gmNotes": "Passive Alert — AI overseer comes online. Ripper and Killer deployed simultaneously."
+        },
+        {
+          "id": "step-r-6",
+          "triggerValue": 16,
+          "ic": [
+            { "id": "ic-r-6a", "type": "Ripper", "category": "ProactiveGray", "rating": 10, "options": ["Cascading"], "targetAttribute": "Bod", "isConstruct": false, "status": "dormant", "currentRating": 10 },
+            { "id": "ic-r-6b", "type": "Killer", "category": "ProactiveWhite", "rating": 10, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 10, "damageCode": "S" }
+          ]
+        },
+        {
+          "id": "step-r-7",
+          "triggerValue": 20,
+          "ic": [
+            { "id": "ic-r-7a", "type": "Blaster", "category": "ProactiveGray", "rating": 10, "options": ["Armor"], "isConstruct": false, "status": "dormant", "currentRating": 10 }
+          ]
+        },
+        {
+          "id": "step-r-8",
+          "triggerValue": 23,
+          "ic": [
+            { "id": "ic-r-8a", "type": "Sparky", "category": "ProactiveGray", "rating": 10, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 10 }
+          ]
+        },
+        {
+          "id": "step-r-9",
+          "triggerValue": 25,
+          "ic": [],
+          "alertChange": "active",
+          "gmNotes": "Active Alert — shutdown sequence initiated (25 turns). Black IC unleashed."
+        },
+        {
+          "id": "step-r-10",
+          "triggerValue": 26,
+          "ic": [
+            { "id": "ic-r-10a", "type": "Lethal", "category": "Black", "rating": 10, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 10 },
+            { "id": "ic-r-10b", "type": "Psychotropic", "category": "Black", "rating": 8, "options": [], "isConstruct": false, "status": "dormant", "currentRating": 8 }
+          ],
+          "gmNotes": "Black IC — Lethal and Psychotropic both deployed. Get out or die."
+        }
+      ],
+      "paydata": [
+        {
+          "id": "pd-red-1",
+          "name": "Project Lazarus — Full Research Archive",
+          "value": 120000,
+          "dataSizeMp": 200,
+          "defense": "scramble",
+          "gmNotes": "The primary objective. Full experimental data from Project Lazarus — bioweapon research. Megacorp buyers will pay through intermediaries. Massive physical and legal exposure."
+        },
+        {
+          "id": "pd-red-2",
+          "name": "Ares Black Site Location Registry",
+          "value": 45000,
+          "dataSizeMp": 8,
+          "defense": "scramble",
+          "gmNotes": "Secondary target — locations of 12 other black sites worldwide. Multiple buyer interest."
+        }
+      ],
+      "files": [
+        {
+          "id": "file-red-1",
+          "name": "lazarus_archive_vol1-4.dat",
+          "description": "Four-volume research archive. Heavily encrypted, enormous file. Contents unknown without decryption.",
+          "sizeMp": 200,
+          "defense": "encryptedAndBomb",
+          "bombRating": 10,
+          "isPaydata": true,
+          "paydataValue": 120000,
+          "gmNotes": "Primary mission objective. Data bomb 10 will fire on first access attempt without correct unlock sequence."
+        },
+        {
+          "id": "file-red-2",
+          "name": "site_registry_classified.dat",
+          "description": "Registry file. Short but encrypted. Filetype suggests geolocation data.",
+          "sizeMp": 8,
+          "defense": "encrypted",
+          "isPaydata": true,
+          "paydataValue": 45000
+        },
+        {
+          "id": "file-red-3",
+          "name": "ai_overseer_core_config.dat",
+          "description": "Configuration file for the host's AI security overseer. Modifying this could blind it.",
+          "sizeMp": 4,
+          "defense": "encryptedAndBomb",
+          "bombRating": 8,
+          "isPaydata": false,
+          "gmNotes": "Editing this file (Edit File op, TN Files+3) will disable the AI overseer for the rest of the run — no automatic Passive Alert escalation. High risk, high reward."
+        }
+      ],
+      "slaves": [
+        {
+          "id": "slave-red-1",
+          "name": "Server Room Environmental Control",
+          "type": "EnvironmentalControl",
+          "description": "Climate control for the primary server room. Currently set to optimal cooling.",
+          "controlEffect": "Disabling cooling causes thermal shutdown of physical servers in 3 turns — destroys all data including the archive. Can also trigger fire suppression (flooding the room with halon).",
+          "isEncrypted": true,
+          "encryptionRating": 8,
+          "hasBomb": false,
+          "gmNotes": "Scorched earth option. If the team can't extract the data, they can at least deny it."
+        },
+        {
+          "id": "slave-red-2",
+          "name": "Facility Lockdown Override",
+          "type": "DoorLock",
+          "description": "Master lockdown controller for the entire Black Site Alpha physical facility.",
+          "controlEffect": "Can lock or unlock any door in the facility. Full lockdown traps all personnel inside — useful for the physical team running simultaneous with the decker.",
+          "isEncrypted": true,
+          "encryptionRating": 9,
+          "hasBomb": true,
+          "bombRating": 9,
+          "gmNotes": "Coordinate with the street team before touching this."
+        }
+      ],
+      "nextHostIds": [],
+      "specialFeatures": {}
+    }
+
+  ]
+}

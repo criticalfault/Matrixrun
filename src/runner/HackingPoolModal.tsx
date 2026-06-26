@@ -30,7 +30,7 @@ export default function HackingPoolModal({ request }: Props) {
       >
         {/* Header */}
         <div className="px-4 py-2 border-b border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5">
-          <div className="text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">Matrix Roll</div>
+          <div className="text-[11px] uppercase tracking-widest text-[var(--color-muted-foreground)]">Matrix Roll</div>
           <div className="text-sm font-bold text-[var(--color-primary)] mt-0.5">{request.label}</div>
         </div>
 
@@ -44,7 +44,7 @@ export default function HackingPoolModal({ request }: Props) {
 
           {/* Pool allocation */}
           <div className="border border-[var(--color-border)] p-3 flex flex-col gap-2">
-            <div className="flex items-center justify-between text-[10px]">
+            <div className="flex items-center justify-between text-[12px]">
               <span className="uppercase tracking-wider text-[var(--color-muted-foreground)]">Hacking Pool</span>
               <span>
                 <span className="text-[var(--color-primary)] font-bold">{available}</span>
@@ -76,7 +76,7 @@ export default function HackingPoolModal({ request }: Props) {
                     <button
                       key={v}
                       onClick={() => setPoolAdd(v)}
-                      className="flex-1 text-[9px] border py-0.5 uppercase tracking-wider transition-colors"
+                      className="flex-1 text-[11px] border py-0.5 uppercase tracking-wider transition-colors"
                       style={{
                         borderColor: poolAdd === v ? 'var(--color-primary)' : 'var(--color-border)',
                         color: poolAdd === v ? 'var(--color-primary)' : 'var(--color-muted-foreground)',
@@ -89,7 +89,7 @@ export default function HackingPoolModal({ request }: Props) {
                 </div>
               </>
             ) : (
-              <div className="text-[10px] text-[var(--color-alert-active)] py-1">
+              <div className="text-[12px] text-[var(--color-alert-active)] py-1">
                 Hacking Pool exhausted this Combat Turn — rolling base dice only.
               </div>
             )}
@@ -100,10 +100,10 @@ export default function HackingPoolModal({ request }: Props) {
             className="flex items-center justify-between px-3 py-2 border text-sm"
             style={{ borderColor: 'var(--color-primary)44', backgroundColor: 'var(--color-primary)08' }}
           >
-            <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted-foreground)]">Rolling</span>
+            <span className="text-[12px] uppercase tracking-wider text-[var(--color-muted-foreground)]">Rolling</span>
             <span>
               <span className="font-bold text-[var(--color-primary)] text-lg">{totalDice}</span>
-              <span className="text-[var(--color-muted-foreground)] text-[11px] ml-1">
+              <span className="text-[var(--color-muted-foreground)] text-[13px] ml-1">
                 dice vs TN {request.targetNumber}
                 {request.baseDice > 0 && poolAdd > 0 && (
                   <span className="opacity-50 ml-1">({request.baseDice} + {poolAdd} pool)</span>
@@ -133,7 +133,7 @@ function StatBox({ label, value, highlight }: { label: string; value: number; hi
       className="border py-2 flex flex-col items-center gap-0.5"
       style={{ borderColor: highlight ? 'var(--color-accent)44' : 'var(--color-border)' }}
     >
-      <span className="text-[9px] uppercase tracking-wider text-[var(--color-muted-foreground)]">{label}</span>
+      <span className="text-[11px] uppercase tracking-wider text-[var(--color-muted-foreground)]">{label}</span>
       <span
         className="text-xl font-bold"
         style={{ color: highlight ? 'var(--color-accent)' : 'var(--color-foreground)' }}

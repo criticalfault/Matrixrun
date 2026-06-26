@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { rollDice } from '@/engine/diceEngine';
 import type {
   ICInstance, Program, CharacterSheet, RunnerSession,
-  PersonaCondition, ICType, DiceRoll,
+  ICType, DiceRoll, SecurityCode,
 } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -10,9 +10,11 @@ import type {
 export interface CombatResult {
   icDamage: number;
   icCrashed: boolean;
-  personaDamage: Partial<PersonaCondition>;
+  personaBoxes: number;          // boxes on icon condition monitor (0 for Black/Sparky)
+  personaDamageLevel: DmgLevel | null; // staged level, null if no persona damage
   bodyStun: number;
   bodyPhys: number;
+  icCategory: string;            // used to gate simsense overload (white/gray only)
   log: string;
 }
 
@@ -27,9 +29,43 @@ interface CombatModalProps {
   onResult: (result: CombatResult) => void;
 }
 
+// ─── SR3 / Matrix3 damage staging ────────────────────────────────────────────
+
+type DmgLevel = 'L' | 'M' | 'S' | 'D';
+const LEVEL_ORDER: DmgLevel[] = ['L', 'M', 'S', 'D'];
+const LEVEL_BOXES: Record<DmgLevel, number> = { L: 1, M: 3, S: 6, D: 10 };
+const LEVEL_LABEL: Record<DmgLevel, string> = {
+  L: 'Light (1 box)',
+  M: 'Moderate (3 boxes)',
+  S: 'Serious (6 boxes)',
+  D: 'Deadly (10 boxes)',
+};
+
+/** Base damage level from host security code — per SR3/Matrix3 proactive IC table */
+function baseDamageLevel(code: SecurityCode): DmgLevel {
+  if (code === 'UV')   return 'D';
+  if (code === 'Red')  return 'S';
+  if (code === 'Orange') return 'S';
+  return 'M'; // Blue / Green
+}
+
+/**
+ * Stage the base damage level using net successes.
+ * Attacker more → stage UP (every 2 net = +1 level).
+ * Defender more → stage DOWN (every 2 net = −1 level).
+ */
+function stageDamage(base: DmgLevel, icSuccesses: number, deckerSuccesses: number): DmgLevel {
+  const idx = LEVEL_ORDER.indexOf(base);
+  if (icSuccesses > deckerSuccesses) {
+    const up = Math.floor((icSuccesses - deckerSuccesses) / 2);
+    return LEVEL_ORDER[Math.min(3, idx + up)];
+  }
+  const down = Math.floor((deckerSuccesses - icSuccesses) / 2);
+  return LEVEL_ORDER[Math.max(0, idx - down)];
+}
+
 // ─── IC category helpers ──────────────────────────────────────────────────────
 
-// Reactive IC types that do not deal counterattack damage
 const REACTIVE_IC_TYPES: ICType[] = [
   'Probe', 'Trace', 'TarBaby', 'TarPit', 'TraceWithTrap',
   'ProbeWithTrap', 'ScoutWithTrap',
@@ -39,21 +75,8 @@ function isReactive(type: ICType): boolean {
   return REACTIVE_IC_TYPES.includes(type);
 }
 
-/**
- * Returns the persona attribute name (key in PersonaCondition) used as defense
- * against a given IC category.
- */
-function defenseAttributeKey(ic: ICInstance): keyof PersonaCondition {
-  switch (ic.category) {
-    case 'ProactiveWhite': return 'evasion';
-    case 'ProactiveGray':  return 'sensors';
-    case 'Black':          return 'bod';
-    // Reactive IC won't reach counterattack damage, but provide a fallback
-    default:               return 'evasion';
-  }
-}
-
-function defenseAttributeLabel(ic: ICInstance): string {
+/** IC attack TN = defender's persona attribute (value, not damage-reduced) */
+function defenseAttrLabel(ic: ICInstance): string {
   switch (ic.category) {
     case 'ProactiveWhite': return 'Evasion';
     case 'ProactiveGray':  return 'Sensors';
@@ -62,77 +85,22 @@ function defenseAttributeLabel(ic: ICInstance): string {
   }
 }
 
-/** Effective persona attribute value = base - damage (min 1) */
-function effectiveAttr(base: number, damage: number): number {
-  return Math.max(1, base - damage);
+function defenseAttrValue(ic: ICInstance, char: CharacterSheet): number {
+  switch (ic.category) {
+    case 'ProactiveWhite': return char.deck.evasion;
+    case 'ProactiveGray':  return char.deck.sensors;
+    case 'Black':          return char.deck.bod;
+    default:               return char.deck.evasion;
+  }
 }
 
-/**
- * Build the PersonaCondition damage object from IC counterattack net hits.
- * Returns personaDamage, bodyStun, bodyPhys.
- */
-function calcCounterattackDamage(
-  ic: ICInstance,
-  netHits: number,
-): { personaDamage: Partial<PersonaCondition>; bodyStun: number; bodyPhys: number } {
-  const personaDamage: Partial<PersonaCondition> = {};
-  let bodyStun = 0;
-  let bodyPhys = 0;
+/** Is this IC a Black IC that deals body damage instead of persona boxes? */
+function isBodyDamage(type: ICType): boolean {
+  return ['Psychotropic', 'NonLethal', 'Cerebropathic', 'Lethal', 'Sparky'].includes(type);
+}
 
-  switch (ic.type) {
-    case 'Killer': {
-      // Split net hits across all 4 attributes, 1 each cycling
-      const attrs: Array<keyof PersonaCondition> = ['bod', 'evasion', 'masking', 'sensors'];
-      for (let i = 0; i < netHits; i++) {
-        const key = attrs[i % 4];
-        personaDamage[key] = (personaDamage[key] ?? 0) + 1;
-      }
-      break;
-    }
-    case 'Crippler': {
-      const target = (ic.targetAttribute?.toLowerCase() ?? 'sensors') as keyof PersonaCondition;
-      personaDamage[target] = netHits;
-      break;
-    }
-    case 'Scout': {
-      personaDamage.sensors = netHits;
-      break;
-    }
-    case 'Blaster': {
-      // Net hits ÷ 4, rounded up, to each attribute
-      const each = Math.ceil(netHits / 4);
-      personaDamage.bod     = each;
-      personaDamage.evasion = each;
-      personaDamage.masking = each;
-      personaDamage.sensors = each;
-      break;
-    }
-    case 'Ripper': {
-      const target = (ic.targetAttribute?.toLowerCase() ?? 'sensors') as keyof PersonaCondition;
-      personaDamage[target] = netHits * 2;
-      break;
-    }
-    case 'Sparky': {
-      bodyStun = netHits;
-      break;
-    }
-    case 'Psychotropic':
-    case 'NonLethal': {
-      bodyStun = netHits;
-      break;
-    }
-    case 'Lethal':
-    case 'Cerebropathic': {
-      bodyPhys = netHits;
-      break;
-    }
-    default: {
-      personaDamage.sensors = netHits;
-      break;
-    }
-  }
-
-  return { personaDamage, bodyStun, bodyPhys };
+function isLethal(type: ICType): boolean {
+  return ['Lethal', 'Cerebropathic'].includes(type);
 }
 
 // ─── Dice display component ───────────────────────────────────────────────────
@@ -145,7 +113,7 @@ function DiceRow({ roll }: { roll: DiceRoll }) {
         return (
           <div
             key={i}
-            className="w-7 h-7 flex items-center justify-center text-[11px] font-bold border"
+            className="w-7 h-7 flex items-center justify-center text-[13px] font-bold border"
             style={{
               borderColor: hit ? '#22c55e' : '#ef444466',
               color: hit ? '#22c55e' : '#ef4444',
@@ -184,28 +152,29 @@ export default function CombatModal({
   const [icNetDamage, setIcNetDamage] = useState(0);
   const [attackDone, setAttackDone] = useState(false);
 
-  // Phase 2 results (IC roll auto-computed when entering phase 2)
+  // Phase 2 results
   const [icAttackRoll, setIcAttackRoll] = useState<DiceRoll | null>(null);
-  const [deckerDefenseRoll, setDeckerDefenseRoll] = useState<DiceRoll | null>(null);
+  const [deckerDRRoll, setDeckerDRRoll] = useState<DiceRoll | null>(null);
   const [counterDone, setCounterDone] = useState(false);
-  const [counterNetHits, setCounterNetHits] = useState(0);
-  const [pendingDamage, setPendingDamage] = useState<{
-    personaDamage: Partial<PersonaCondition>;
-    bodyStun: number;
-    bodyPhys: number;
-  } | null>(null);
+  const [pendingPersonaBoxes, setPendingPersonaBoxes] = useState(0);
+  const [pendingBodyStun, setPendingBodyStun] = useState(0);
+  const [pendingBodyPhys, setPendingBodyPhys] = useState(0);
+  const [stagedLevel, setStagedLevel] = useState<DmgLevel>('L');
+  const [baseLevel, setBaseLevel] = useState<DmgLevel>('L');
 
-  // ── Deck persona values ──
+  // ── Derived constants ──
+  const host = session.runPacket?.hosts?.find(h => h.id === session.currentHostId);
+  const secCode: SecurityCode = host?.securityCode ?? 'Green';
   const deck = character.deck;
-  const pc = session.personaCondition;
-  const defAttrKey = defenseAttributeKey(ic);
-  const defAttrLabel = defenseAttributeLabel(ic);
-  const defBase = defAttrKey === 'bod' ? deck.bod
-    : defAttrKey === 'evasion' ? deck.evasion
-    : defAttrKey === 'sensors' ? deck.sensors
-    : deck.masking;
-  const defDmg = pc[defAttrKey];
-  const effDef = effectiveAttr(defBase, defDmg);
+
+  const defLabel = defenseAttrLabel(ic);
+  const defVal = defenseAttrValue(ic, character);
+
+  // Armor utility reduces Power of incoming damage
+  const armorProg = session.loadedPrograms.find(
+    p => p.loaded && p.name.toLowerCase() === 'armor',
+  );
+  const armorRating = armorProg?.rating ?? 0;
 
   // ── Phase 1: Decker Attacks ──────────────────────────────────────────────────
 
@@ -232,71 +201,95 @@ export default function CombatModal({
   }, [attackProgram, ic.currentRating, offensePool]);
 
   const handleProceedToCounterattack = useCallback(() => {
-    // Auto-roll IC counterattack
-    const icDice = Math.max(1, ic.currentRating - icNetDamage);
-    // IC attacks vs decker's defense attribute
-    const icTN = effDef;
-    const icRoll = rollDice(icDice, icTN, `${ic.type}-${ic.currentRating} attack`);
+    const icDiceAfterDmg = Math.max(1, ic.currentRating - icNetDamage);
+    // IC attacks vs decker's defense persona attribute (Evasion / Sensors / Bod)
+    const icRoll = rollDice(icDiceAfterDmg, defVal, `${ic.type}-${icDiceAfterDmg} attack`);
     setIcAttackRoll(icRoll);
     setPhase('counterattack');
-  }, [ic, icNetDamage, effDef]);
+  }, [ic, icNetDamage, defVal]);
 
-  // ── Phase 2: IC Counterattacks ───────────────────────────────────────────────
+  // ── Phase 2: Decker rolls Damage Resistance ──────────────────────────────────
 
-  const handleDefenseRoll = useCallback(() => {
+  const handleDRRoll = useCallback(() => {
     if (!icAttackRoll) return;
-    const defDice = effDef + suppressionPool + defensePool;
-    const defTN = Math.max(1, ic.currentRating - icNetDamage);
-    const dRoll = rollDice(defDice, defTN, `Decker defense (${defAttrLabel})`);
-    setDeckerDefenseRoll(dRoll);
 
-    const net = Math.max(0, icAttackRoll.successes - dRoll.successes);
-    setCounterNetHits(net);
+    // Power = IC effective rating after phase-1 damage, reduced by Armor utility
+    const power = Math.max(1, ic.currentRating - icNetDamage);
+    const drTN = Math.max(2, power - armorRating);
+    const drDice = deck.bod + suppressionPool + defensePool;
 
-    if (net > 0 && !isReactive(ic.type)) {
-      const dmg = calcCounterattackDamage(ic, net);
-      setPendingDamage(dmg);
+    const drRoll = rollDice(drDice, drTN, `Damage Resistance (Bod ${deck.bod}${armorRating > 0 ? `, Armor-${armorRating}` : ''})`);
+    setDeckerDRRoll(drRoll);
+
+    const base = ic.damageCode ?? baseDamageLevel(secCode);
+    const staged = stageDamage(base, icAttackRoll.successes, drRoll.successes);
+    const boxes = LEVEL_BOXES[staged];
+
+    setBaseLevel(base);
+    setStagedLevel(staged);
+
+    if (!isReactive(ic.type) && (icAttackRoll.successes > 0 || drRoll.successes === 0)) {
+      if (isBodyDamage(ic.type)) {
+        if (isLethal(ic.type)) {
+          setPendingBodyPhys(boxes);
+        } else {
+          setPendingBodyStun(boxes);
+        }
+        setPendingPersonaBoxes(0);
+      } else {
+        setPendingPersonaBoxes(boxes);
+        setPendingBodyStun(0);
+        setPendingBodyPhys(0);
+      }
     } else {
-      setPendingDamage({ personaDamage: {}, bodyStun: 0, bodyPhys: 0 });
+      setPendingPersonaBoxes(0);
+      setPendingBodyStun(0);
+      setPendingBodyPhys(0);
     }
+
     setCounterDone(true);
-  }, [icAttackRoll, effDef, defensePool, ic, icNetDamage, defAttrLabel]);
+  }, [icAttackRoll, defensePool, suppressionPool, deck.bod, ic, icNetDamage, armorRating, secCode]);
 
   const handleApplyAndClose = useCallback(() => {
     if (!attackRoll || !icDefenseRoll) return;
-    const dmg = pendingDamage ?? { personaDamage: {}, bodyStun: 0, bodyPhys: 0 };
     const newRating = ic.currentRating - icNetDamage;
 
-    // Build log summary
     let log = `Attack (${attackProgram.name}): ${attackRoll.successes} hits vs IC ${icDefenseRoll.successes} hits`;
     if (icNetDamage > 0) log += ` — IC -${icNetDamage} rating`;
     if (newRating <= 0) log += ` — IC CRASHED`;
-    if (icAttackRoll && deckerDefenseRoll) {
-      log += ` | Counterattack: IC ${icAttackRoll.successes} vs decker ${deckerDefenseRoll.successes}`;
-      if (counterNetHits > 0) log += ` — ${counterNetHits} net hits dealt`;
+    if (icAttackRoll && deckerDRRoll) {
+      const power = Math.max(1, ic.currentRating - icNetDamage);
+      const drTN = Math.max(2, power - armorRating);
+      log += ` | Counterattack: IC ${icAttackRoll.successes} hits, DR Bod(${deck.bod}) vs TN${drTN}: ${deckerDRRoll.successes} hits`;
+      log += ` — base ${baseLevel} → staged ${stagedLevel} = ${LEVEL_BOXES[stagedLevel]} boxes`;
     }
 
     onResult({
       icDamage: icNetDamage,
       icCrashed: newRating <= 0,
-      personaDamage: dmg.personaDamage,
-      bodyStun: dmg.bodyStun,
-      bodyPhys: dmg.bodyPhys,
+      personaBoxes: pendingPersonaBoxes,
+      personaDamageLevel: pendingPersonaBoxes > 0 ? stagedLevel : null,
+      bodyStun: pendingBodyStun,
+      bodyPhys: pendingBodyPhys,
+      icCategory: ic.category,
       log,
     });
   }, [
-    attackRoll, icDefenseRoll, icNetDamage, pendingDamage,
-    ic, attackProgram, icAttackRoll, deckerDefenseRoll, counterNetHits, onResult,
+    attackRoll, icDefenseRoll, icNetDamage, ic, attackProgram,
+    icAttackRoll, deckerDRRoll, armorRating, deck.bod,
+    baseLevel, stagedLevel, pendingPersonaBoxes, pendingBodyStun, pendingBodyPhys, onResult,
   ]);
 
   const handleCatastrophicClose = useCallback(() => {
     onResult({
       icDamage: 0,
       icCrashed: false,
-      personaDamage: { evasion: 1 },
+      personaBoxes: 1,
+      personaDamageLevel: 'L',
       bodyStun: 0,
       bodyPhys: 0,
-      log: 'CATASTROPHIC FAILURE — Decker takes 1 Evasion damage. IC counterattack skipped.',
+      icCategory: ic.category,
+      log: 'CATASTROPHIC FAILURE — Persona takes 1 box (Light damage). IC counterattack skipped.',
     });
   }, [onResult]);
 
@@ -308,9 +301,9 @@ export default function CombatModal({
       style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}
     >
       <div
-        className="flex flex-col gap-0 border font-mono text-[11px] overflow-y-auto"
+        className="flex flex-col gap-0 border font-mono text-[13px] overflow-y-auto"
         style={{
-          width: 500,
+          width: 520,
           maxHeight: '90vh',
           borderColor: 'var(--color-primary)',
           backgroundColor: 'var(--color-card)',
@@ -319,11 +312,11 @@ export default function CombatModal({
       >
         {/* Header */}
         <div
-          className="px-4 py-2 border-b text-[12px] font-bold tracking-widest"
+          className="px-4 py-2 border-b text-[14px] font-bold tracking-widest"
           style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
         >
           {phase === 'counterattack'
-            ? 'IC COUNTERATTACK'
+            ? 'IC COUNTERATTACK — DAMAGE RESISTANCE'
             : phase === 'catastrophic'
             ? 'CATASTROPHIC FAILURE'
             : `CYBERCOMBAT — ${ic.type}-${ic.currentRating}`}
@@ -335,18 +328,18 @@ export default function CombatModal({
           {phase === 'catastrophic' && (
             <>
               <div
-                className="text-center text-[14px] font-bold tracking-widest py-3 border"
+                className="text-center text-[16px] font-bold tracking-widest py-3 border"
                 style={{ borderColor: '#ef4444', color: '#ef4444', backgroundColor: '#ef444410' }}
               >
                 ALL DICE SHOWED 1s
               </div>
-              <div className="text-[10px] text-[var(--color-muted-foreground)] text-center">
-                Persona takes 1 Evasion damage. IC counterattack skipped.
+              <div className="text-[12px] text-[var(--color-muted-foreground)] text-center">
+                Persona takes 1 box (Light damage). IC counterattack skipped.
               </div>
               {attackRoll && <DiceRow roll={attackRoll} />}
               <button
                 onClick={handleCatastrophicClose}
-                className="w-full py-2 border font-bold tracking-widest text-[11px] hover:opacity-80 transition-opacity"
+                className="w-full py-2 border font-bold tracking-widest text-[13px] hover:opacity-80 transition-opacity"
                 style={{ borderColor: '#ef4444', color: '#ef4444' }}
               >
                 [ ACCEPT DAMAGE & CLOSE ]
@@ -355,9 +348,8 @@ export default function CombatModal({
           )}
 
           {/* ── Phase 1: Decker attacks ── */}
-          {(phase === 'attack' || (phase === 'counterattack' && attackDone)) && phase === 'attack' && (
+          {phase === 'attack' && (
             <>
-              {/* Info row */}
               <div className="flex flex-col gap-1 border border-[var(--color-border)] p-2">
                 <InfoRow label="Attack Program" value={`${attackProgram.name} (Rating ${attackProgram.rating})`} />
                 <InfoRow label="Attack dice" value={`${attackProgram.rating} + ${offensePool} pool = ${attackProgram.rating + offensePool}`} />
@@ -365,7 +357,6 @@ export default function CombatModal({
                 <InfoRow label="IC defends with" value={`${ic.currentRating} dice, TN ${attackProgram.rating}`} />
               </div>
 
-              {/* Offense pool slider */}
               {!attackDone && (
                 <PoolSlider
                   label="Offense hacking pool"
@@ -375,43 +366,31 @@ export default function CombatModal({
                 />
               )}
 
-              {/* Roll button */}
               {!attackDone && (
                 <button
                   onClick={handleAttackRoll}
-                  className="w-full py-2 border font-bold tracking-widest text-[11px] hover:bg-[var(--color-primary)]/10 transition-colors"
+                  className="w-full py-2 border font-bold tracking-widest text-[13px] hover:bg-[var(--color-primary)]/10 transition-colors"
                   style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
                 >
                   [ ROLL ATTACK ]
                 </button>
               )}
 
-              {/* Results */}
               {attackDone && attackRoll && icDefenseRoll && (
                 <>
-                  <RollResultBlock
-                    label={`Decker attack — TN ${ic.currentRating}`}
-                    roll={attackRoll}
-                  />
-                  <RollResultBlock
-                    label={`IC defense — TN ${attackProgram.rating}`}
-                    roll={icDefenseRoll}
-                  />
+                  <RollResultBlock label={`Decker attack — TN ${ic.currentRating}`} roll={attackRoll} />
+                  <RollResultBlock label={`IC defense — TN ${attackProgram.rating}`} roll={icDefenseRoll} />
                   <div
                     className="border p-2 text-center"
-                    style={{
-                      borderColor: icNetDamage > 0 ? 'var(--color-primary)' : 'var(--color-border)',
-                    }}
+                    style={{ borderColor: icNetDamage > 0 ? 'var(--color-primary)' : 'var(--color-border)' }}
                   >
                     {icNetDamage > 0 ? (
                       <span style={{ color: 'var(--color-primary)' }}>
-                        NET {icNetDamage} — IC currentRating reduced by {icNetDamage}
+                        NET {icNetDamage} — IC rating reduced by {icNetDamage}
                         {ic.currentRating - icNetDamage <= 0 ? ' — IC CRASHED' : ''}
                       </span>
                     ) : (
-                      <span style={{ color: 'var(--color-muted-foreground)' }}>
-                        No net successes — IC holds
-                      </span>
+                      <span style={{ color: 'var(--color-muted-foreground)' }}>No net successes — IC holds</span>
                     )}
                   </div>
 
@@ -421,13 +400,15 @@ export default function CombatModal({
                         onResult({
                           icDamage: icNetDamage,
                           icCrashed: ic.currentRating - icNetDamage <= 0,
-                          personaDamage: {},
+                          personaBoxes: 0,
+                          personaDamageLevel: null,
                           bodyStun: 0,
                           bodyPhys: 0,
+                          icCategory: ic.category,
                           log: `Attack: ${attackRoll.successes} hits vs IC ${icDefenseRoll.successes} hits — net ${icNetDamage}. Reactive IC: no counterattack.`,
                         });
                       }}
-                      className="w-full py-2 border font-bold tracking-widest text-[11px] hover:bg-[var(--color-primary)]/10 transition-colors"
+                      className="w-full py-2 border font-bold tracking-widest text-[13px] hover:bg-[var(--color-primary)]/10 transition-colors"
                       style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
                     >
                       [ APPLY & CLOSE (Reactive IC) ]
@@ -435,7 +416,7 @@ export default function CombatModal({
                   ) : (
                     <button
                       onClick={handleProceedToCounterattack}
-                      className="w-full py-2 border font-bold tracking-widest text-[11px] hover:bg-[var(--color-primary)]/10 transition-colors"
+                      className="w-full py-2 border font-bold tracking-widest text-[13px] hover:bg-[var(--color-primary)]/10 transition-colors"
                       style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
                     >
                       [ CONTINUE → IC STRIKES BACK ]
@@ -446,100 +427,94 @@ export default function CombatModal({
             </>
           )}
 
-          {/* ── Phase 2: IC Counterattacks ── */}
-          {phase === 'counterattack' && icAttackRoll && (
-            <>
-              <div className="flex flex-col gap-1 border border-[var(--color-border)] p-2">
-                <InfoRow label="IC type" value={`${ic.type} (${ic.category})`} />
-                <InfoRow
-                  label="IC attack dice"
-                  value={`${Math.max(1, ic.currentRating - icNetDamage)} (after -${icNetDamage} damage)`}
-                />
-                <InfoRow label="Defense attribute" value={`${defAttrLabel} (base ${defBase} - ${defDmg} dmg = eff ${effDef})`} />
-                {suppressionPool > 0 && (
-                  <InfoRow label="Auto-defense (suppression)" value={`+${suppressionPool} dice`} />
-                )}
-                <InfoRow
-                  label="Defense dice total"
-                  value={suppressionPool > 0
-                    ? `${effDef} attr + ${suppressionPool} suppress + ${defensePool} extra = ${effDef + suppressionPool + defensePool}`
-                    : `${effDef} attr + ${defensePool} extra = ${effDef + defensePool}`}
-                />
-                <InfoRow label="Decker defense TN" value={String(Math.max(1, ic.currentRating - icNetDamage))} highlight />
-              </div>
-
-              {/* IC attack roll display */}
-              <RollResultBlock
-                label={`IC attack — TN ${effDef}`}
-                roll={icAttackRoll}
-              />
-
-              {/* Defense pool slider */}
-              {!counterDone && (
-                <PoolSlider
-                  label={suppressionPool > 0 ? `Additional defense pool (${suppressionPool} suppression auto-applied)` : 'Defense hacking pool'}
-                  value={defensePool}
-                  max={hackingPoolAvailable - offensePool}
-                  onChange={setDefensePool}
-                />
-              )}
-
-              {/* Roll defense button */}
-              {!counterDone && (
-                <button
-                  onClick={handleDefenseRoll}
-                  className="w-full py-2 border font-bold tracking-widest text-[11px] hover:bg-[var(--color-primary)]/10 transition-colors"
-                  style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
-                >
-                  [ ROLL DEFENSE ]
-                </button>
-              )}
-
-              {/* Counter results */}
-              {counterDone && deckerDefenseRoll && (
-                <>
-                  <RollResultBlock
-                    label={`Decker defense — TN ${Math.max(1, ic.currentRating - icNetDamage)}`}
-                    roll={deckerDefenseRoll}
+          {/* ── Phase 2: IC Counterattacks → Damage Resistance ── */}
+          {phase === 'counterattack' && icAttackRoll && (() => {
+            const power = Math.max(1, ic.currentRating - icNetDamage);
+            const drTN = Math.max(2, power - armorRating);
+            const base = ic.damageCode ?? baseDamageLevel(secCode);
+            return (
+              <>
+                <div className="flex flex-col gap-1 border border-[var(--color-border)] p-2">
+                  <InfoRow label="IC type" value={`${ic.type} (${ic.category})`} />
+                  <InfoRow label="Host security code" value={secCode} />
+                  <InfoRow label="Base damage code" value={`${power}${base} — Power ${power}, Level ${base}`} />
+                  <InfoRow label="IC attack" value={`${power} dice vs TN ${defVal} (${defLabel})`} />
+                  <InfoRow label="DR test" value={`Bod ${deck.bod} dice vs TN ${drTN}`} highlight />
+                  {armorRating > 0 && (
+                    <InfoRow label="Armor utility" value={`Armor-${armorRating} reduces Power: ${power + armorRating} → ${power}`} />
+                  )}
+                  {suppressionPool > 0 && (
+                    <InfoRow label="Suppression auto-applied" value={`+${suppressionPool} dice`} />
+                  )}
+                  <InfoRow
+                    label="Total DR dice"
+                    value={suppressionPool > 0
+                      ? `${deck.bod} Bod + ${suppressionPool} suppress + ${defensePool} extra = ${deck.bod + suppressionPool + defensePool}`
+                      : `${deck.bod} Bod + ${defensePool} extra = ${deck.bod + defensePool}`}
                   />
-                  <div
-                    className="border p-2 text-center"
-                    style={{
-                      borderColor: counterNetHits > 0 ? '#ef4444' : 'var(--color-border)',
-                    }}
-                  >
-                    {counterNetHits > 0 && pendingDamage ? (
-                      <DamageSummary
-                        ic={ic}
-                        netHits={counterNetHits}
-                        personaDamage={pendingDamage.personaDamage}
-                        bodyStun={pendingDamage.bodyStun}
-                        bodyPhys={pendingDamage.bodyPhys}
-                      />
-                    ) : (
-                      <span style={{ color: '#22c55e' }}>Decker defended — no damage</span>
-                    )}
-                  </div>
+                </div>
 
+                <RollResultBlock label={`IC attack — TN ${defVal} (${defLabel})`} roll={icAttackRoll} />
+
+                {!counterDone && (
+                  <PoolSlider
+                    label={suppressionPool > 0
+                      ? `Additional DR pool (${suppressionPool} suppression auto-applied)`
+                      : 'DR hacking pool bonus'}
+                    value={defensePool}
+                    max={hackingPoolAvailable - offensePool}
+                    onChange={setDefensePool}
+                  />
+                )}
+
+                {!counterDone && (
                   <button
-                    onClick={handleApplyAndClose}
-                    className="w-full py-2 border font-bold tracking-widest text-[11px] hover:opacity-80 transition-opacity"
-                    style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                    onClick={handleDRRoll}
+                    className="w-full py-2 border font-bold tracking-widest text-[13px] hover:bg-[var(--color-primary)]/10 transition-colors"
+                    style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
                   >
-                    [ APPLY DAMAGE & CLOSE ]
+                    [ ROLL DAMAGE RESISTANCE (Bod) ]
                   </button>
-                </>
-              )}
-            </>
-          )}
+                )}
+
+                {counterDone && deckerDRRoll && (
+                  <>
+                    <RollResultBlock label={`DR Test — Bod(${deck.bod}) vs TN ${drTN}`} roll={deckerDRRoll} />
+                    <div
+                      className="border p-2"
+                      style={{ borderColor: (pendingPersonaBoxes > 0 || pendingBodyStun > 0 || pendingBodyPhys > 0) ? '#ef4444' : '#22c55e' }}
+                    >
+                      <StagingSummary
+                        ic={ic}
+                        baseLevel={baseLevel}
+                        stagedLevel={stagedLevel}
+                        icHits={icAttackRoll.successes}
+                        deckerHits={deckerDRRoll.successes}
+                        personaBoxes={pendingPersonaBoxes}
+                        bodyStun={pendingBodyStun}
+                        bodyPhys={pendingBodyPhys}
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleApplyAndClose}
+                      className="w-full py-2 border font-bold tracking-widest text-[13px] hover:opacity-80 transition-opacity"
+                      style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                    >
+                      [ APPLY DAMAGE & CLOSE ]
+                    </button>
+                  </>
+                )}
+              </>
+            );
+          })()}
 
         </div>
 
-        {/* Cancel button at bottom */}
         <div className="px-4 pb-3">
           <button
             onClick={onClose}
-            className="w-full py-1 text-[10px] tracking-wider text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] border border-[var(--color-border)] transition-colors"
+            className="w-full py-1 text-[12px] tracking-wider text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] border border-[var(--color-border)] transition-colors"
           >
             Cancel
           </button>
@@ -568,9 +543,26 @@ function InfoRow({ label, value, highlight }: { label: string; value: string; hi
 function RollResultBlock({ label, roll }: { label: string; roll: DiceRoll }) {
   return (
     <div className="border border-[var(--color-border)] p-2">
-      <div className="text-[9px] text-[var(--color-muted-foreground)] tracking-wider mb-1">{label}</div>
-      <DiceRow roll={roll} />
-      <div className="text-[10px] mt-1">
+      <div className="text-[11px] text-[var(--color-muted-foreground)] tracking-wider mb-1">{label}</div>
+      <div className="flex flex-wrap gap-1 my-1">
+        {roll.dice.map((d, i) => {
+          const hit = d >= roll.targetNumber;
+          return (
+            <div
+              key={i}
+              className="w-7 h-7 flex items-center justify-center text-[13px] font-bold border"
+              style={{
+                borderColor: hit ? '#22c55e' : '#ef444466',
+                color: hit ? '#22c55e' : '#ef4444',
+                backgroundColor: hit ? '#22c55e18' : '#ef444410',
+              }}
+            >
+              {d}
+            </div>
+          );
+        })}
+      </div>
+      <div className="text-[12px] mt-1">
         <span className="text-[var(--color-muted-foreground)]">Successes: </span>
         <span
           className="font-bold"
@@ -592,13 +584,11 @@ function PoolSlider({
   onChange: (v: number) => void;
 }) {
   if (max <= 0) {
-    return (
-      <div className="text-[9px] text-[var(--color-muted-foreground)] italic">No hacking pool available</div>
-    );
+    return <div className="text-[11px] text-[var(--color-muted-foreground)] italic">No hacking pool available</div>;
   }
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex justify-between text-[9px] text-[var(--color-muted-foreground)]">
+      <div className="flex justify-between text-[11px] text-[var(--color-muted-foreground)]">
         <span>{label}</span>
         <span style={{ color: 'var(--color-primary)' }}>{value} dice</span>
       </div>
@@ -610,7 +600,7 @@ function PoolSlider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full accent-[var(--color-primary)]"
       />
-      <div className="flex justify-between text-[9px] text-[var(--color-muted-foreground)]">
+      <div className="flex justify-between text-[11px] text-[var(--color-muted-foreground)]">
         <span>0</span>
         <span>{max}</span>
       </div>
@@ -618,31 +608,60 @@ function PoolSlider({
   );
 }
 
-function DamageSummary({
-  ic, netHits, personaDamage, bodyStun, bodyPhys,
+function StagingSummary({
+  ic, baseLevel, stagedLevel, icHits, deckerHits,
+  personaBoxes, bodyStun, bodyPhys,
 }: {
   ic: ICInstance;
-  netHits: number;
-  personaDamage: Partial<PersonaCondition>;
+  baseLevel: DmgLevel;
+  stagedLevel: DmgLevel;
+  icHits: number;
+  deckerHits: number;
+  personaBoxes: number;
   bodyStun: number;
   bodyPhys: number;
 }) {
-  const lines: string[] = [];
-  if (personaDamage.bod)     lines.push(`Bod -${personaDamage.bod}`);
-  if (personaDamage.evasion) lines.push(`Evasion -${personaDamage.evasion}`);
-  if (personaDamage.masking) lines.push(`Masking -${personaDamage.masking}`);
-  if (personaDamage.sensors) lines.push(`Sensors -${personaDamage.sensors}`);
-  if (bodyStun > 0)          lines.push(`Stun ${bodyStun}`);
-  if (bodyPhys > 0)          lines.push(`Physical ${bodyPhys}`);
+  const totalBoxes = personaBoxes + bodyStun + bodyPhys;
+  const noDamage = totalBoxes === 0;
+
+  const netIC = Math.max(0, icHits - deckerHits);
+  const netDecker = Math.max(0, deckerHits - icHits);
 
   return (
-    <div className="flex flex-col gap-0.5">
-      <div style={{ color: '#ef4444' }} className="font-bold">
-        {ic.type} hits for {netHits} net — damage:
+    <div className="flex flex-col gap-1 text-[12px]">
+      <div className="flex justify-between">
+        <span className="text-[var(--color-muted-foreground)]">IC: {icHits} hits vs DR: {deckerHits} hits</span>
+        {netIC > 0
+          ? <span style={{ color: '#ef4444' }}>IC +{netIC} net</span>
+          : netDecker > 0
+          ? <span style={{ color: '#22c55e' }}>Decker +{netDecker} net</span>
+          : <span style={{ color: 'var(--color-muted-foreground)' }}>Tied</span>
+        }
       </div>
-      {lines.map((l, i) => (
-        <div key={i} style={{ color: '#ef4444' }}>{l}</div>
-      ))}
+      {baseLevel !== stagedLevel ? (
+        <div className="flex justify-between">
+          <span className="text-[var(--color-muted-foreground)]">Staging</span>
+          <span style={{ color: '#ef4444' }}>{baseLevel} → {stagedLevel}</span>
+        </div>
+      ) : (
+        <div className="flex justify-between">
+          <span className="text-[var(--color-muted-foreground)]">Damage Level</span>
+          <span style={{ color: '#ef4444' }}>{baseLevel} (no staging)</span>
+        </div>
+      )}
+      {noDamage ? (
+        <div className="font-bold text-center" style={{ color: '#22c55e' }}>
+          Decker defended — no damage
+        </div>
+      ) : (
+        <div className="font-bold" style={{ color: '#ef4444' }}>
+          {ic.type} hits: {LEVEL_LABEL[stagedLevel]}
+          {personaBoxes > 0 && ` → PERSONA +${personaBoxes} boxes`}
+          {bodyStun > 0    && ` → STUN +${bodyStun}`}
+          {bodyPhys > 0    && ` → PHYSICAL +${bodyPhys}`}
+          {personaBoxes >= 10 && ' — PERSONA CRASH!'}
+        </div>
+      )}
     </div>
   );
 }

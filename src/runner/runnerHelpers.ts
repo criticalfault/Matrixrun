@@ -1,6 +1,6 @@
 import { rollDice } from '@/engine/diceEngine';
-import { PROGRAM_OP_BONUS } from '@/data/srTables';
-import type { RunnerSession, Program } from '@/types';
+import { OPERATION_DEFINITIONS } from '@/data/srTables';
+import type { RunnerSession, Program, Host, ICInstance, AlertLevel } from '@/types';
 
 export function calcDetectionFactor(session: RunnerSession): number {
   const masking = session.character.deck.masking - session.personaCondition.masking;
@@ -12,20 +12,57 @@ export function calcDetectionFactor(session: RunnerSession): number {
   return Math.max(1, base - suppressPenalty);
 }
 
+/**
+ * Find the operational utility for this operation, then check if the decker
+ * has a loaded copy. Returns TN reduction = utility rating, or 0 if not loaded.
+ */
 export function getProgramTNReduction(opKey: string, programs: Program[]): { reduction: number; label: string } {
-  const loaded = programs.filter(p => p.loaded);
-  let reduction = 0;
-  const labels: string[] = [];
-  for (const [progName, ops] of Object.entries(PROGRAM_OP_BONUS)) {
-    if ((ops as string[]).includes(opKey)) {
-      const prog = loaded.find(p => p.name.toLowerCase().includes(progName.toLowerCase()));
-      if (prog) {
-        reduction += prog.rating;
-        labels.push(`${prog.name} -${prog.rating}`);
-      }
+  const op = OPERATION_DEFINITIONS[opKey];
+  if (!op?.utility) return { reduction: 0, label: '' };
+
+  const utilName = op.utility.toLowerCase();
+  const prog = programs.find(p => p.loaded && p.name.toLowerCase() === utilName);
+  if (!prog) return { reduction: 0, label: '' };
+
+  return { reduction: prog.rating, label: `${prog.name} -${prog.rating}` };
+}
+
+/**
+ * Check the security sheaf for steps that are newly crossed by a tally change.
+ * Returns all IC instances to activate and any alert level upgrade.
+ * Only fires steps in the range (oldTally, newTally] — won't re-fire already-passed steps.
+ */
+export interface SheafFireResult {
+  ics: ICInstance[];
+  alertChange: AlertLevel | null;
+  stepLogs: string[];
+}
+
+export function checkSheafTriggers(
+  host: Host,
+  oldTally: number,
+  newTally: number,
+): SheafFireResult {
+  const result: SheafFireResult = { ics: [], alertChange: null, stepLogs: [] };
+
+  const firedSteps = (host.securitySheaf ?? [])
+    .filter(step => step.triggerValue > oldTally && step.triggerValue <= newTally)
+    .sort((a, b) => a.triggerValue - b.triggerValue);
+
+  for (const step of firedSteps) {
+    // Clone each IC with runtime status set to active
+    for (const ic of step.ic ?? []) {
+      result.ics.push({ ...ic, status: 'active', currentRating: ic.currentRating ?? ic.rating });
     }
+    if (step.alertChange) {
+      result.alertChange = step.alertChange;
+    }
+    const icList = (step.ic ?? []).map(ic => ic.type).join(', ') || 'no IC';
+    const alertNote = step.alertChange ? ` | ALERT → ${step.alertChange.toUpperCase()}` : '';
+    result.stepLogs.push(`Tally ${step.triggerValue}: ${icList}${alertNote}`);
   }
-  return { reduction, label: labels.join(', ') };
+
+  return result;
 }
 
 /**

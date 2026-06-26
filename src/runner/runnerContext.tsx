@@ -2,6 +2,7 @@ import { createContext, useContext, useReducer, useCallback, type ReactNode } fr
 import type {
   RunPacket, CharacterSheet, RunnerSession, AlertLevel,
   ICInstance, LogEntry, LogEntryType, PersonaCondition, Host, ICType,
+  HostKnowledge, SubsystemRatings,
 } from '@/types';
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -16,16 +17,27 @@ export type RunnerAction =
   | { type: 'ADVANCE_HOST';     payload: string }   // next host id
   | { type: 'ACTIVATE_IC';      payload: ICInstance }
   | { type: 'REMOVE_IC';        payload: string }   // ic id
-  | { type: 'DAMAGE_PERSONA';   payload: Partial<PersonaCondition> }
-  | { type: 'TAKE_STUN';        payload: number }
-  | { type: 'TAKE_PHYS';        payload: number }
+  | { type: 'DAMAGE_PERSONA';      payload: Partial<PersonaCondition> }
+  | { type: 'TAKE_PERSONA_DAMAGE'; payload: number }   // boxes on icon condition monitor
+  | { type: 'TAKE_STUN';          payload: number }
+  | { type: 'TAKE_PHYS';          payload: number }
   | { type: 'FIND_PAYDATA';     payload: string }   // file id
   | { type: 'SET_INITIATIVE';   payload: number }
   | { type: 'SET_SHUTDOWN';     payload: number | undefined }
   | { type: 'TICK_SHUTDOWN' }
   | { type: 'CRASH_IC';         payload: { icId: string; suppress: boolean } }
   | { type: 'UPDATE_IC_RATING'; payload: { icId: string; newRating: number } }
-  | { type: 'SET_SUPPRESSION_POOL'; payload: number };
+  | { type: 'SET_SUPPRESSION_POOL'; payload: number }
+  | { type: 'SET_SAFEJACK' }
+  | { type: 'GO_BACK' }
+  | { type: 'DISCOVER_NEXT_HOSTS'; payload: { hostId: string; nextIds: string[] } }
+  | { type: 'LOCATE_FILES';  payload: { hostId: string; fileIds:  string[] } }
+  | { type: 'LOCATE_SLAVES'; payload: { hostId: string; slaveIds: string[] } }
+  | { type: 'REVEAL_HOST_INFO';    payload: {
+      hostId: string;
+      securityRating?: boolean;
+      subsystems?: Partial<Record<keyof SubsystemRatings, boolean>>;
+    } };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -37,8 +49,19 @@ function initialPersona(): PersonaCondition {
   return { bod: 0, evasion: 0, sensors: 0, masking: 0 };
 }
 
+function blankKnowledge(): HostKnowledge {
+  return {
+    securityRating: false,
+    subsystems: { access: false, files: false, slave: false, index: false, control: false },
+  };
+}
+
+function buildKnownHosts(hosts: RunPacket['hosts']): Record<string, HostKnowledge> {
+  return Object.fromEntries(hosts.map(h => [h.id, blankKnowledge()]));
+}
+
 export function currentHost(session: RunnerSession): Host | undefined {
-  return session.runPacket.hosts.find(h => h.id === session.currentHostId);
+  return session.runPacket?.hosts?.find(h => h.id === session.currentHostId);
 }
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -57,6 +80,7 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
         alertLevel: 'none',
         activeIC: [],
         suppressedIC: [],
+        personaBoxes: 0,
         personaCondition: initialPersona(),
         stunDamage: 0,
         physDamage: 0,
@@ -70,7 +94,13 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
         foundPaydata: [],
         log: [],
         isLoggedIn: true,
+        safejack: false,
+        hostHistory: [entryId],
+        knownNextHosts: {},
+        locatedFiles: {},
+        locatedSlaves: {},
         shutdownCountdown: undefined,
+        knownHosts: buildKnownHosts(runPacket.hosts),
       };
     }
 
@@ -109,12 +139,45 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
         nextHost?.pltgGroupId &&
         currHost.pltgGroupId === nextHost.pltgGroupId
       );
+      // Mark the target as discovered from current host
+      const prevKnown = state.knownNextHosts[state.currentHostId] ?? [];
+      const updatedKnownNext = prevKnown.includes(nextHostId)
+        ? state.knownNextHosts
+        : { ...state.knownNextHosts, [state.currentHostId]: [...prevKnown, nextHostId] };
       return {
         ...state,
         currentHostId: nextHostId,
+        hostHistory: [...(state.hostHistory ?? []), nextHostId],
+        knownNextHosts: updatedKnownNext,
         securityTally: samePLTG ? state.securityTally : 0,
         alertLevel:    samePLTG ? state.alertLevel    : 'none',
         activeIC:      samePLTG ? state.activeIC      : [],
+      };
+    }
+
+    case 'GO_BACK': {
+      const history = state.hostHistory ?? [];
+      if (history.length <= 1) return state; // already at entry
+      const newHistory = history.slice(0, -1);
+      const prevId = newHistory[newHistory.length - 1];
+      return {
+        ...state,
+        currentHostId: prevId,
+        hostHistory: newHistory,
+        // Reset combat state when backing out
+        activeIC: [],
+        alertLevel: 'none',
+        securityTally: 0,
+      };
+    }
+
+    case 'DISCOVER_NEXT_HOSTS': {
+      const { hostId, nextIds } = action.payload;
+      const prev = state.knownNextHosts[hostId] ?? [];
+      const merged = [...new Set([...prev, ...nextIds])];
+      return {
+        ...state,
+        knownNextHosts: { ...state.knownNextHosts, [hostId]: merged },
       };
     }
 
@@ -137,11 +200,14 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
       };
     }
 
+    case 'TAKE_PERSONA_DAMAGE':
+      return { ...state, personaBoxes: Math.min(10, (state.personaBoxes ?? 0) + action.payload) };
+
     case 'TAKE_STUN':
-      return { ...state, stunDamage: state.stunDamage + action.payload };
+      return { ...state, stunDamage: Math.min(10, state.stunDamage + action.payload) };
 
     case 'TAKE_PHYS':
-      return { ...state, physDamage: state.physDamage + action.payload };
+      return { ...state, physDamage: Math.min(10, state.physDamage + action.payload) };
 
     case 'FIND_PAYDATA':
       return { ...state, foundPaydata: [...state.foundPaydata, action.payload] };
@@ -194,6 +260,38 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
       };
     }
 
+    case 'LOCATE_FILES': {
+      const { hostId, fileIds } = action.payload;
+      const prev = state.locatedFiles?.[hostId] ?? [];
+      const merged = [...new Set([...prev, ...fileIds])];
+      return { ...state, locatedFiles: { ...(state.locatedFiles ?? {}), [hostId]: merged } };
+    }
+
+    case 'LOCATE_SLAVES': {
+      const { hostId, slaveIds } = action.payload;
+      const prev = state.locatedSlaves?.[hostId] ?? [];
+      const merged = [...new Set([...prev, ...slaveIds])];
+      return { ...state, locatedSlaves: { ...(state.locatedSlaves ?? {}), [hostId]: merged } };
+    }
+
+    case 'SET_SAFEJACK':
+      return { ...state, safejack: true };
+
+    case 'REVEAL_HOST_INFO': {
+      const { hostId, securityRating, subsystems } = action.payload;
+      const prev = state.knownHosts[hostId] ?? blankKnowledge();
+      return {
+        ...state,
+        knownHosts: {
+          ...state.knownHosts,
+          [hostId]: {
+            securityRating: securityRating ?? prev.securityRating,
+            subsystems: { ...prev.subsystems, ...subsystems },
+          },
+        },
+      };
+    }
+
     default:
       return state;
   }
@@ -220,6 +318,7 @@ const EMPTY_SESSION: RunnerSession = {
   alertLevel: 'none',
   activeIC: [],
   suppressedIC: [],
+  personaBoxes: 0,
   personaCondition: initialPersona(),
   stunDamage: 0,
   physDamage: 0,
@@ -233,6 +332,12 @@ const EMPTY_SESSION: RunnerSession = {
   foundPaydata: [],
   log: [],
   isLoggedIn: false,
+  safejack: false,
+  hostHistory: [],
+  knownNextHosts: {},
+  locatedFiles: {},
+  locatedSlaves: {},
+  knownHosts: {},
 };
 
 export function RunnerProvider({ children }: { children: ReactNode }) {

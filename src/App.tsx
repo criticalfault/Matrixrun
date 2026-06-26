@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import BuilderPage from '@/builder/BuilderPage'
 import RunnerPage from '@/runner/RunnerPage'
-import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 
 // ─── Landing Page ─────────────────────────────────────────────────────────────
@@ -101,47 +100,6 @@ function ModeButton({
   )
 }
 
-// ─── Placeholder pages ────────────────────────────────────────────────────────
-
-function RunnerPlaceholder() {
-  const navigate = useNavigate()
-  return <ComingSoon title="RUNNER" subtitle="Decker Matrix Interface" accent="var(--color-accent)" onBack={() => navigate('/')} />
-}
-
-function ComingSoon({ title, subtitle, accent, onBack }: {
-  title: string; subtitle: string; accent: string; onBack: () => void
-}) {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-6">
-      <div className="text-center">
-        <div className="text-[10px] tracking-[0.4em] text-[var(--color-muted-foreground)] mb-1 uppercase">
-          MatrixRun
-        </div>
-        <h1
-          className="text-4xl font-mono font-bold tracking-tight"
-          style={{ color: accent, textShadow: `0 0 8px ${accent}` }}
-        >
-          {title}
-        </h1>
-        <div className="text-xs text-[var(--color-muted-foreground)] mt-1 tracking-wider">
-          {subtitle}
-        </div>
-      </div>
-      <div
-        className="border p-6 text-center text-xs text-[var(--color-muted-foreground)]"
-        style={{ borderColor: accent, maxWidth: 400 }}
-      >
-        <div className="tracking-widest mb-2" style={{ color: accent }}>
-          SYSTEM LOADING...
-        </div>
-        Phase 1 scaffolding complete.
-        <br />
-        Full interface coming in Phase 2.
-      </div>
-      <Button variant="outline" onClick={onBack}>← Back to main menu</Button>
-    </div>
-  )
-}
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 

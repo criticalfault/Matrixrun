@@ -1,0 +1,46 @@
+{
+  "name": "Riya Mehta",
+  "streetName": "Ghost",
+  "race": "Human",
+  "attributes": {
+    "body":         3,
+    "quickness":    5,
+    "strength":     3,
+    "charisma":     3,
+    "willpower":    5,
+    "intelligence": 7,
+    "reaction":     6,
+    "essence":      3.9
+  },
+  "deck": {
+    "name":             "Renraku Kraftwerk-8",
+    "persona":          8,
+    "bod":              6,
+    "evasion":          7,
+    "sensors":          6,
+    "masking":          5,
+    "hardening":        3,
+    "activeMemoryMp":   300,
+    "storageMemoryMp":  2000,
+    "ioSpeed":          300,
+    "responseIncrease": 3
+  },
+  "hackingPool":     8,
+  "computerSkill":   7,
+  "electronicsSkill": 4,
+  "isVerified":      false,
+  "programs": [
+    { "name": "Deception",  "rating": 6, "multiplier": 5, "sizeMp": 30, "loaded": true  },
+    { "name": "Browse",     "rating": 6, "multiplier": 3, "sizeMp": 18, "loaded": true  },
+    { "name": "Analyze",    "rating": 5, "multiplier": 4, "sizeMp": 20, "loaded": true  },
+    { "name": "Read/Write", "rating": 6, "multiplier": 2, "sizeMp": 12, "loaded": true  },
+    { "name": "Decrypt",    "rating": 5, "multiplier": 5, "sizeMp": 25, "loaded": true  },
+    { "name": "Sleaze",     "rating": 6, "multiplier": 5, "sizeMp": 30, "loaded": true  },
+    { "name": "Attack",     "rating": 6, "multiplier": 5, "sizeMp": 30, "loaded": false },
+    { "name": "Spoof",      "rating": 5, "multiplier": 5, "sizeMp": 25, "loaded": false },
+    { "name": "Evaluate",   "rating": 5, "multiplier": 2, "sizeMp": 10, "loaded": false },
+    { "name": "Scanner",    "rating": 5, "multiplier": 5, "sizeMp": 25, "loaded": false },
+    { "name": "Commlink",   "rating": 4, "multiplier": 3, "sizeMp": 12, "loaded": false },
+    { "name": "Encrypt",    "rating": 5, "multiplier": 3, "sizeMp": 15, "loaded": false }
+  ]
+}

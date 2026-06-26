@@ -324,15 +324,27 @@ export interface PersonaCondition {
   masking: number;
 }
 
+// What the decker has learned about a host via Analyze operations.
+// Everything starts unknown (false) and is revealed one piece at a time.
+export interface HostKnowledge {
+  securityRating: boolean; // code + value revealed together (one choice in Analyze Host)
+  subsystems: Record<keyof SubsystemRatings, boolean>;
+}
+
 export interface RunnerSession {
   runPacket: RunPacket;
   character: CharacterSheet;
   currentHostId: string;
   securityTally: number;
   alertLevel: AlertLevel;
+  // What the decker has analyzed per host. Keyed by hostId.
+  knownHosts: Record<string, HostKnowledge>;
   // IC currently active and fighting the decker
   activeIC: ICInstance[];
-  personaCondition: PersonaCondition;
+  // Icon condition monitor — single 10-box track (Matrix3 rules)
+  personaBoxes: number;
+  // Body condition monitor — separate Stun / Physical tracks
+  personaCondition: PersonaCondition; // kept for manual GM editing
   stunDamage: number;
   physDamage: number;
   loadedPrograms: Program[];
@@ -349,6 +361,15 @@ export interface RunnerSession {
   log: LogEntry[];
   // Has the decker successfully logged on?
   isLoggedIn: boolean;
+  // Set to true when GracefulLogoff succeeds — prevents dump shock on disconnect
+  safejack: boolean;
+  // Ordered list of host IDs visited (breadcrumb for back-navigation)
+  hostHistory: string[];
+  // Per host: which nextHostIds the decker has discovered via LocateAccessNode
+  knownNextHosts: Record<string, string[]>;
+  // Per host: file and slave IDs the decker has located (hidden until searched)
+  locatedFiles:  Record<string, string[]>;
+  locatedSlaves: Record<string, string[]>;
   // Is a host shutdown sequence in progress?
   shutdownCountdown?: number;
   // IC that was suppressed (crashed without tally cost)

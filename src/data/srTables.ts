@@ -250,122 +250,429 @@ export const IC_OPTION_DESCRIPTIONS: Record<ICOption, string> = {
   Party:     'Multiple IC programs acting as a cluster — harder to hit but attacks suffer modifier.',
 };
 
-// ─── Security Tally Cost Table (SR3 p.210) ────────────────────────────────────
-// Each operation has a Security Tally cost on failure (and sometimes on success)
+// ─── System Operations (SR3 p.224-229, Matrix3 p.98-102) ─────────────────────
 
 export interface OperationDefinition {
   label: string;
+  /** Which host subsystem rating is used as the base TN. 'none' = Security Value. */
   subsystem: 'access' | 'files' | 'slave' | 'index' | 'control' | 'none';
+  /** Operational utility that reduces TN by its rating (null = no utility applies). */
+  utility: string | null;
+  /** Hacking pool action cost. */
+  action: 'Free' | 'Simple' | 'Complex';
+  /**
+   * Interrogation operations require multiple System Tests that accumulate successes.
+   * TN is adjusted by how specific/vague the decker's search terms are (fuzzy modifier).
+   */
+  isInterrogation?: boolean;
+  /** Total accumulated successes needed to complete the interrogation. */
+  interrogationGoal?: number;
+  /** Ongoing action — continues each turn (Download, Upload, Swap Memory). */
+  isOngoing?: boolean;
+  /** Monitored action — security may detect activity each turn while active. */
+  isMonitored?: boolean;
+  /** Displayed in UI as informational guidance — actual tally comes from Security Test. */
   tallyOnSuccess: number;
   tallyOnFailure: number;
-  requiresProgram?: string;
   description: string;
 }
 
 export const OPERATION_DEFINITIONS: Record<string, OperationDefinition> = {
-  Access: {
-    label: 'Logon / Access',
+
+  // ── Logon / Access Operations ─────────────────────────────────────────────
+
+  LogonToHost: {
+    label: 'Logon to Host',
     subsystem: 'access',
+    utility: 'Deception',
+    action: 'Complex',
     tallyOnSuccess: 0,
     tallyOnFailure: 2,
-    description: 'Enter the system through the SAN. Uses Access subsystem rating as base TN.',
+    description:
+      'Enter a host through a SAN. TN = Access rating. Deception utility reduces TN by its rating. ' +
+      'Failure triggers immediate Security Alert.',
   },
-  LocateFile: {
-    label: 'Locate File',
-    subsystem: 'index',
-    tallyOnSuccess: 0,
-    tallyOnFailure: 1,
-    description: 'Search the file system for a specific file. Uses Index subsystem rating.',
-  },
-  ReadFile: {
-    label: 'Read File',
-    subsystem: 'files',
-    tallyOnSuccess: 0,
-    tallyOnFailure: 1,
-    description: 'Read the contents of a located file. Uses Files subsystem rating.',
-  },
-  EditFile: {
-    label: 'Edit File',
-    subsystem: 'files',
-    tallyOnSuccess: 1,
-    tallyOnFailure: 2,
-    description: 'Modify a file. Raises tally even on success.',
-  },
-  LocatePaydata: {
-    label: 'Locate Paydata',
-    subsystem: 'index',
-    tallyOnSuccess: 1,
-    tallyOnFailure: 2,
-    requiresProgram: 'Evaluate',
-    description: 'Search for high-value paydata files. Requires Evaluate utility.',
-  },
-  DownloadFile: {
-    label: 'Download File',
-    subsystem: 'files',
-    tallyOnSuccess: 0,
-    tallyOnFailure: 1,
-    description: 'Transfer a file to deck storage. I/O speed determines transfer time.',
-  },
-  ControlSlave: {
-    label: 'Control Slave',
-    subsystem: 'slave',
-    tallyOnSuccess: 1,
-    tallyOnFailure: 3,
-    requiresProgram: 'Remote Control',
-    description: 'Take control of a slaved device. Uses Slave subsystem rating.',
-  },
-  EncryptAccess: {
-    label: 'Encrypt Access',
+
+  LogonToLTG: {
+    label: 'Logon to LTG',
     subsystem: 'access',
+    utility: 'Deception',
+    action: 'Complex',
     tallyOnSuccess: 0,
     tallyOnFailure: 2,
-    description: 'Encrypt an access node to require a passcode.',
+    description:
+      'Enter a Local Telecommunications Grid node. TN = LTG Access rating. ' +
+      'Deception utility reduces TN. Used to reach hosts connected behind the LTG.',
   },
+
+  LogonToRTG: {
+    label: 'Logon to RTG',
+    subsystem: 'access',
+    utility: 'Deception',
+    action: 'Complex',
+    tallyOnSuccess: 0,
+    tallyOnFailure: 2,
+    description:
+      'Enter a Regional Telecommunications Grid. TN = RTG Access rating. ' +
+      'Deception utility reduces TN. Required to reach hosts across regional networks.',
+  },
+
+  GracefulLogoff: {
+    label: 'Graceful Logoff',
+    subsystem: 'access',
+    utility: 'Deception',
+    action: 'Complex',
+    tallyOnSuccess: 0,
+    tallyOnFailure: 0,
+    description:
+      'Exit the system cleanly, erasing evidence of the intrusion. TN = Access rating. ' +
+      'Deception utility reduces TN. Net successes reduce security tally (1 tally per success). ' +
+      'Failure leaves a datatrail. Cannot be performed under Active Alert.',
+  },
+
+  DecryptAccess: {
+    label: 'Decrypt Access',
+    subsystem: 'access',
+    utility: 'Decrypt',
+    action: 'Simple',
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Defeat Scramble IC protecting a SAN or access node. TN = Access rating. ' +
+      'Decrypt utility reduces TN by its rating. Must succeed before the SAN can be entered.',
+  },
+
+  // ── Control Operations ────────────────────────────────────────────────────
+
   AnalyzeHost: {
     label: 'Analyze Host',
     subsystem: 'control',
+    utility: 'Analyze',
+    action: 'Complex',
     tallyOnSuccess: 0,
     tallyOnFailure: 1,
-    requiresProgram: 'Analyze',
-    description: 'Determine the host\'s Security Code, Security Value, and subsystem ratings.',
+    description:
+      'Determine host parameters. TN = Control rating. Analyze utility reduces TN. ' +
+      'Each net success reveals one piece of info (Security Code, SV, subsystem ratings, etc.). ' +
+      '7+ net successes reveals all information about the host at once.',
   },
-  AnalyzeSubsystem: {
-    label: 'Analyze Subsystem',
-    subsystem: 'control',
-    tallyOnSuccess: 0,
-    tallyOnFailure: 1,
-    requiresProgram: 'Analyze',
-    description: 'Determine the rating of a specific subsystem, detect worms.',
-  },
+
   AnalyzeIC: {
     label: 'Analyze IC',
     subsystem: 'control',
+    utility: 'Analyze',
+    action: 'Free',
+    tallyOnSuccess: 0,
+    tallyOnFailure: 0,
+    description:
+      'Identify an active IC program. TN = Control rating. Analyze utility reduces TN. ' +
+      'Free action — costs no hacking pool dice. ' +
+      'Success reveals IC type, rating, and any special options it carries.',
+  },
+
+  AnalyzeIcon: {
+    label: 'Analyze Icon',
+    subsystem: 'control',
+    utility: 'Analyze',
+    action: 'Free',
+    tallyOnSuccess: 0,
+    tallyOnFailure: 0,
+    description:
+      'Identify any icon in the Matrix (decker, device, program). TN = Control rating, ' +
+      'reduced by Sensors rating (minimum TN 2). Analyze utility further reduces TN. ' +
+      'Free action. Success reveals the icon type and any detectable attributes.',
+  },
+
+  AnalyzeSecurity: {
+    label: 'Analyze Security',
+    subsystem: 'control',
+    utility: 'Analyze',
+    action: 'Simple',
+    tallyOnSuccess: 0,
+    tallyOnFailure: 0,
+    description:
+      'Query host security status. TN = Control rating. Analyze utility reduces TN. ' +
+      'Returns current Security Code, Security Tally total, and current Alert level. ' +
+      'Does not reveal IC or specific defenses.',
+  },
+
+  AnalyzeSubsystem: {
+    label: 'Analyze Subsystem',
+    subsystem: 'control',
+    utility: 'Analyze',
+    action: 'Simple',
+    tallyOnSuccess: 0,
+    tallyOnFailure: 0,
+    description:
+      'Examine a specific host subsystem (Access, Control, Index, Files, Slave). ' +
+      'TN = rating of the targeted subsystem. Analyze utility reduces TN. ' +
+      'Success reveals the subsystem rating and detects any Scramble IC or active worm infections.',
+  },
+
+  NullOperation: {
+    label: 'Null Operation',
+    subsystem: 'control',
+    utility: 'Deception',
+    action: 'Complex',
     tallyOnSuccess: 0,
     tallyOnFailure: 1,
-    requiresProgram: 'Analyze',
-    description: 'Determine the type and rating of an active IC program.',
+    description:
+      'Perform no meaningful action while masking your presence. TN = Security Value + inactivity modifier. ' +
+      'Deception utility reduces TN. Inactivity TN modifier: <10 sec +0, <1 min +1, <1 hr +2, <12 hr +4 (+1 per 12 hr after). ' +
+      'Failure means your inactivity was detected and tally increases.',
   },
-  CrashIC: {
-    label: 'Crash IC',
-    subsystem: 'none',
+
+  // ── Index Operations ──────────────────────────────────────────────────────
+
+  LocateAccessNode: {
+    label: 'Locate Access Node',
+    subsystem: 'index',
+    utility: 'Browse',
+    action: 'Complex',
+    isInterrogation: true,
+    interrogationGoal: 5,
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Search host index for a specific SAN or access node. TN = Index rating ± fuzzy modifier. ' +
+      'Browse utility reduces TN. Interrogation operation: accumulate 5 total successes across multiple tests. ' +
+      'Fuzzy TN modifier based on search specificity: very vague +2, vague +1, normal ±0, specific -1, very specific -2.',
+  },
+
+  LocateFile: {
+    label: 'Locate File',
+    subsystem: 'index',
+    utility: 'Browse',
+    action: 'Complex',
+    isInterrogation: true,
+    interrogationGoal: 5,
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Search host index for a specific data file. TN = Index rating ± fuzzy modifier. ' +
+      'Browse utility reduces TN. Interrogation operation: accumulate 5 total successes across multiple tests. ' +
+      'Fuzzy TN modifier: very vague +2, vague +1, normal ±0, specific -1, very specific -2.',
+  },
+
+  LocateIC: {
+    label: 'Locate IC',
+    subsystem: 'index',
+    utility: 'Analyze',
+    action: 'Complex',
     tallyOnSuccess: 0,
     tallyOnFailure: 0,
-    description: 'Destroy an active IC program using an Attack utility.',
+    description:
+      'Search for dormant IC stored in the host index. TN = Index rating. ' +
+      'Analyze utility reduces TN. On success, automatically locates all stored IC programs ' +
+      'and reveals their type and rating.',
   },
-  RedirectDatatrail: {
-    label: 'Redirect Datatrail',
-    subsystem: 'none',
-    tallyOnSuccess: 0,
-    tallyOnFailure: 0,
-    requiresProgram: 'Sleaze',
-    description: 'Obscure the decker\'s datatrail. +1 TN to Trace IC for each success.',
-  },
-  DumpLog: {
-    label: 'Dump Log',
-    subsystem: 'control',
-    tallyOnSuccess: 0,
+
+  LocatePaydata: {
+    label: 'Locate Paydata',
+    subsystem: 'index',
+    utility: 'Evaluate',
+    action: 'Complex',
+    isInterrogation: true,
+    interrogationGoal: 5,
+    tallyOnSuccess: 1,
     tallyOnFailure: 2,
-    description: 'Erase the security log. Reduces Security Tally by net successes × 2.',
+    description:
+      'Search host index for commercially valuable data. TN = Index rating ± fuzzy modifier. ' +
+      'Requires Evaluate utility loaded — Evaluate reduces TN by its rating. ' +
+      'Interrogation operation: accumulate 5 total successes. Adds to tally even on success (high-risk operation). ' +
+      'Evaluate utility degrades: loses 1D6÷2 rating after each run (round down, min 0).',
+  },
+
+  LocateSlave: {
+    label: 'Locate Slave',
+    subsystem: 'index',
+    utility: 'Browse',
+    action: 'Complex',
+    isInterrogation: true,
+    interrogationGoal: 3,
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Search host index for a slaved device. TN = Index rating ± fuzzy modifier. ' +
+      'Browse utility reduces TN. Interrogation operation: accumulate only 3 total successes ' +
+      '(easier than locating files). ' +
+      'Fuzzy TN modifier: very vague +2, vague +1, normal ±0, specific -1, very specific -2.',
+  },
+
+  LocateDecker: {
+    label: 'Locate Decker',
+    subsystem: 'index',
+    utility: 'Scanner',
+    action: 'Complex',
+    tallyOnSuccess: 0,
+    tallyOnFailure: 0,
+    description:
+      'Detect another decker operating in the same host. Two-test operation: ' +
+      '(1) System Test — TN = Index rating, Scanner utility reduces TN; ' +
+      '(2) Sensor Test — TN = opposing decker\'s Masking, Sensor attribute adds dice. ' +
+      'Both tests must succeed. On success, the opposing decker\'s persona is located and visible.',
+  },
+
+  // ── Files Operations ──────────────────────────────────────────────────────
+
+  DownloadData: {
+    label: 'Download Data',
+    subsystem: 'files',
+    utility: 'Read/Write',
+    action: 'Simple',
+    isOngoing: true,
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Transfer a file from the host to deck storage. TN = Files rating. ' +
+      'Read/Write utility reduces TN. Ongoing action: transfer rate = deck I/O speed (Mp per Combat Turn). ' +
+      'Large files require multiple turns. Must Locate File first. ' +
+      'Encrypted files must be Decrypted before downloading.',
+  },
+
+  UploadData: {
+    label: 'Upload Data',
+    subsystem: 'files',
+    utility: 'Read/Write',
+    action: 'Simple',
+    isOngoing: true,
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Transfer a file from deck storage into the host. TN = Files rating. ' +
+      'Read/Write utility reduces TN. Ongoing action: upload rate = deck I/O speed (Mp per Combat Turn). ' +
+      'Success places the file in the host\'s file system.',
+  },
+
+  EditFile: {
+    label: 'Edit File',
+    subsystem: 'files',
+    utility: 'Read/Write',
+    action: 'Simple',
+    tallyOnSuccess: 1,
+    tallyOnFailure: 2,
+    description:
+      'Create, modify, or erase a file on the host. TN = Files rating. ' +
+      'Read/Write utility reduces TN. Adds to security tally even on success — ' +
+      'altering host data is inherently suspicious. ' +
+      'Net successes determine quality/completeness of the edit.',
+  },
+
+  DecryptFile: {
+    label: 'Decrypt File',
+    subsystem: 'files',
+    utility: 'Decrypt',
+    action: 'Simple',
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Remove encryption from a protected data file. TN = Files rating. ' +
+      'Decrypt utility reduces TN by its rating. Must succeed before a file can be read, ' +
+      'edited, or downloaded. Encrypt utility (opposing) may increase effective TN.',
+  },
+
+  MakeComcall: {
+    label: 'Make Comcall',
+    subsystem: 'files',
+    utility: 'Commlink',
+    action: 'Complex',
+    isMonitored: true,
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Place a communication call through the Matrix. TN = Files rating. ' +
+      'Commlink utility reduces TN. Monitored action: security may detect the call each turn. ' +
+      'Success establishes a communication link. The call persists until ended.',
+  },
+
+  TapComcall: {
+    label: 'Tap Comcall',
+    subsystem: 'files',
+    utility: 'Commlink',
+    action: 'Complex',
+    isMonitored: true,
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Intercept an active communication. TN = Files rating. ' +
+      'Commlink utility reduces TN. Monitored action. Multi-step: must Locate the comcall first, ' +
+      'then Tap it. Success grants passive monitoring; speaking requires additional Spoof tests.',
+  },
+
+  // ── Slave Operations ──────────────────────────────────────────────────────
+
+  ControlSlave: {
+    label: 'Control Slave',
+    subsystem: 'slave',
+    utility: 'Spoof',
+    action: 'Complex',
+    isMonitored: true,
+    tallyOnSuccess: 1,
+    tallyOnFailure: 3,
+    description:
+      'Issue commands directly to a slaved device. TN = Slave rating. ' +
+      'Spoof utility reduces TN by its rating. Monitored action: security tests each turn. ' +
+      'Adds to tally even on success — unauthorized device control is a major intrusion. ' +
+      'Must Locate Slave first. Decrypt Slave first if the slave link is encrypted.',
+  },
+
+  EditSlave: {
+    label: 'Edit Slave',
+    subsystem: 'slave',
+    utility: 'Spoof',
+    action: 'Complex',
+    isMonitored: true,
+    tallyOnSuccess: 1,
+    tallyOnFailure: 2,
+    description:
+      'Modify the programming or configuration data of a slaved device. TN = Slave rating. ' +
+      'Spoof utility reduces TN. Monitored action. ' +
+      'Alters device behavior, parameters, or stored data. More subtle than Control Slave ' +
+      'but still adds to tally on success.',
+  },
+
+  MonitorSlave: {
+    label: 'Monitor Slave',
+    subsystem: 'slave',
+    utility: 'Spoof',
+    action: 'Simple',
+    isMonitored: true,
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Passively observe the status and sensor feeds of a slaved device. TN = Slave rating. ' +
+      'Spoof utility reduces TN. Monitored action — host can detect unauthorized passive monitoring. ' +
+      'Simpler than Control Slave (Simple action, no success tally). ' +
+      'Must Locate Slave first.',
+  },
+
+  DecryptSlave: {
+    label: 'Decrypt Slave',
+    subsystem: 'slave',
+    utility: 'Decrypt',
+    action: 'Simple',
+    tallyOnSuccess: 0,
+    tallyOnFailure: 1,
+    description:
+      'Remove encryption from a protected slave link. TN = Slave rating. ' +
+      'Decrypt utility reduces TN by its rating. Must succeed before Control Slave, ' +
+      'Edit Slave, or Monitor Slave can be attempted on an encrypted slave.',
+  },
+
+  // ── Utility / Housekeeping Operations ─────────────────────────────────────
+
+  SwapMemory: {
+    label: 'Swap Memory',
+    subsystem: 'none',
+    utility: null,
+    action: 'Simple',
+    isOngoing: true,
+    tallyOnSuccess: 0,
+    tallyOnFailure: 0,
+    description:
+      'Load or unload utility programs from active memory. No System Test required — automatic success. ' +
+      'Ongoing action: takes one Combat Turn per program. ' +
+      'Swapping programs does not trigger a Security Test.',
   },
 };
 
@@ -417,15 +724,20 @@ export const KILLER_DAMAGE_BY_CODE: Record<SecurityCode, DamageLevel> = {
   UV:     'D',
 };
 
-// ─── Program → Operation Bonus Mapping ───────────────────────────────────────
+// ─── Program → Operation Bonus Mapping (SR3 p.237-241, Matrix3 p.68-73) ──────
+// Each utility reduces TN by its rating for the listed operations.
+// Used for reverse-lookup (e.g. "what does my Browse help with?")
 
 export const PROGRAM_OP_BONUS: Record<string, string[]> = {
-  'Browse':         ['LocateFile', 'ReadFile', 'DownloadFile', 'LocatePaydata'],
-  'Read/Write':     ['ReadFile', 'EditFile'],
-  'Analyze':        ['AnalyzeHost', 'AnalyzeSubsystem', 'AnalyzeIC'],
-  'Evaluate':       ['LocatePaydata'],
-  'Decrypt':        ['ReadFile', 'DownloadFile'],
-  'Remote Control': ['ControlSlave'],
+  'Analyze':   ['AnalyzeHost', 'AnalyzeIC', 'AnalyzeIcon', 'AnalyzeSecurity', 'AnalyzeSubsystem', 'LocateIC'],
+  'Browse':    ['LocateAccessNode', 'LocateFile', 'LocateSlave'],
+  'Commlink':  ['MakeComcall', 'TapComcall'],
+  'Deception': ['LogonToHost', 'LogonToLTG', 'LogonToRTG', 'GracefulLogoff', 'NullOperation'],
+  'Decrypt':   ['DecryptAccess', 'DecryptFile', 'DecryptSlave'],
+  'Evaluate':  ['LocatePaydata'],
+  'Read/Write':['DownloadData', 'EditFile', 'UploadData'],
+  'Scanner':   ['LocateDecker'],
+  'Spoof':     ['ControlSlave', 'EditSlave', 'MonitorSlave'],
 };
 
 // ─── Worm Subtypes ────────────────────────────────────────────────────────────

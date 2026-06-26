@@ -1,0 +1,125 @@
+{
+  "_comment": "NPC Security Decker template. Based on Matrix3 'Security Sysop' contact stats (p.127). Transys Highlander cyberdeck (MPCP 9). Hacking Pool 10 (floor((7+9)/3)=5 base, +2 Encephalon-2, +3 Math SPU-3). Deploys on Passive Alert to hunt the intruding decker via Locate Decker operation.",
+
+  "_deployment_rule": "Active Alarms: Security decker joins next Combat Turn after Passive Alert triggers. Makes Locate Decker (Index op, TN=Index rating) using Scanner each turn to find the player. On success, they can initiate cybercombat.",
+
+  "_tiers": {
+    "note":     "Scale security deckers to match host security code. The stats below are Orange/Red grade. See tier table.",
+    "Blue":     "Computer 3, Hacking Pool 4, MPCP 4, Bod/Eva/Sen/Mas ~3/3/3/3",
+    "Green":    "Computer 4, Hacking Pool 6, MPCP 6, Bod/Eva/Sen/Mas ~4/5/4/4",
+    "Orange":   "These stats — Computer 6 (Decking 8), Hacking Pool 10, MPCP 9",
+    "Red":      "Computer 7 (Decking 9), Hacking Pool 12, MPCP 10, Bod/Eva/Sen/Mas ~8/9/8/9",
+    "UV":       "Computer 8 (Decking 12), Hacking Pool 15+, MPCP 12, fully optimized persona"
+  },
+
+  "name":       "Marcus Kane",
+  "streetName": "Watchdog",
+  "race":       "Human",
+
+  "attributes": {
+    "body":         3,
+    "quickness":    5,
+    "strength":     3,
+    "charisma":     5,
+    "willpower":    6,
+    "intelligence": 7,
+    "_note_int":    "Base INT 6 + Cerebral Booster 1 = 7.",
+    "reaction":     6,
+    "essence":      3.6
+  },
+
+  "deck": {
+    "name":             "Transys Highlander",
+    "_note_deck":       "MPCP 9. Corporate-grade hardware — illegal to own without a security contractor license.",
+    "persona":          9,
+    "bod":              7,
+    "evasion":          8,
+    "sensors":          7,
+    "masking":          5,
+    "_note_attributes": "Sum = 27 = MPCP×3. Evasion and Bod prioritized — he's built to fight, not sneak.",
+    "hardening":        4,
+    "activeMemoryMp":   400,
+    "storageMemoryMp":  3000,
+    "ioSpeed":          400,
+    "responseIncrease": 4,
+    "_note_ri":         "Response Increase 4 = +4D6 Matrix initiative. Sysops win by going first."
+  },
+
+  "hackingPool":    10,
+  "_note_hp":       "floor((INT 7 + MPCP 9) / 3) = 5 base, +2 Encephalon-2, +3 Math SPU-3 = 10 total.",
+
+  "computerSkill":    8,
+  "_note_cs":         "Computer 6 (Decking 8). Uses specialization for all Matrix ops.",
+
+  "electronicsSkill": 4,
+
+  "isVerified": false,
+
+  "_npc_combat_behavior": {
+    "turn1_after_passive_alert": "Locate Decker (Index Test, Scanner-7 reduces TN). If success: initiate cybercombat with Attack program.",
+    "turn2+":                    "Maintain Locate Decker if still searching. In combat: full offensive — Attack-8, suppression pool 0 (he's offense-focused).",
+    "on_active_alert":           "Calls in second security decker. Both focus fire on the intruder.",
+    "retreat_condition":         "If Bod reduced to 0 or Evasion reduced to 0, dumps from Matrix. Does not pursue."
+  },
+
+  "programs": [
+
+    {
+      "name":       "Attack",
+      "rating":     8,
+      "multiplier": 5,
+      "sizeMp":     40,
+      "loaded":     true,
+      "_note":      "Primary weapon. Uses full Computer (Decking 8) + hacking pool in offensive cybercombat."
+    },
+    {
+      "name":       "Deception",
+      "rating":     7,
+      "multiplier": 5,
+      "sizeMp":     35,
+      "loaded":     true,
+      "_note":      "He knows his own host — Deception helps navigate the alarm state without triggering more tally."
+    },
+    {
+      "name":       "Analyze",
+      "rating":     7,
+      "multiplier": 4,
+      "sizeMp":     28,
+      "loaded":     true,
+      "_note":      "Analyze Icon (Free action) to ID the intruder's persona. Analyze IC to check own IC state."
+    },
+    {
+      "name":       "Scanner",
+      "rating":     7,
+      "multiplier": 5,
+      "sizeMp":     35,
+      "loaded":     true,
+      "_note":      "Required for Locate Decker. TN = host Index rating reduced by Scanner rating. He WILL find you."
+    },
+    {
+      "name":       "Browse",
+      "rating":     6,
+      "multiplier": 3,
+      "sizeMp":     18,
+      "loaded":     true,
+      "_note":      "Backup locate utility. He knows the host index better than you."
+    },
+
+    {
+      "name":       "Sleaze",
+      "rating":     4,
+      "multiplier": 5,
+      "sizeMp":     20,
+      "loaded":     false,
+      "_note":      "Low Sleaze — he's a defender, not a ghost. DF = ceil((Masking 5 + Sleaze 4) / 2) = 5. Not trying to hide."
+    },
+    {
+      "name":       "Spoof",
+      "rating":     6,
+      "multiplier": 5,
+      "sizeMp":     30,
+      "loaded":     false,
+      "_note":      "Used to commandeer slaved devices to cut off intruder escape routes."
+    }
+  ]
+}

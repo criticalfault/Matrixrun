@@ -1,0 +1,157 @@
+{
+  "_comment": "Player decker based on Matrix3 'Decker' contact stats (p.127). Renraku Kraftwerk-8 cyberdeck. Hacking Pool 8 (floor((7+8)/3)=5 base, +1 Encephalon-1, +2 Math SPU-2).",
+
+  "name": "Riya Mehta",
+  "streetName": "Ghost",
+  "race": "Human",
+
+  "attributes": {
+    "body":         3,
+    "quickness":    5,
+    "strength":     3,
+    "charisma":     3,
+    "willpower":    5,
+    "intelligence": 7,
+    "_note_int":    "Base INT 6 + Cerebral Booster 1 = 7 (permanent augmentation)",
+    "reaction":     6,
+    "_note_react":  "Reaction (Q+I)/2 = (5+7)/2 = 6, +1 from Response Increase deck option = 6 base meat",
+    "essence":      3.9
+  },
+
+  "deck": {
+    "name":             "Renraku Kraftwerk-8",
+    "_note_deck":       "MPCP 8. Legal limit is 4 in most locales — this is street-grade hot hardware.",
+    "persona":          8,
+    "_note_persona":    "MPCP rating. No persona attribute may exceed this. Sum of all four ≤ MPCP×3 = 24.",
+    "bod":              6,
+    "evasion":          7,
+    "sensors":          6,
+    "masking":          5,
+    "_note_attributes": "Sum = 24 = MPCP×3. All ≤ 8. Evasion is the combat priority; Masking drives Detection Factor.",
+    "hardening":        3,
+    "_note_hardening":  "Reduces damage from IC attacks (Hardening dice added to damage resistance).",
+    "activeMemoryMp":   300,
+    "_note_memory":     "300 Mp active. Total loaded program size must not exceed this.",
+    "storageMemoryMp":  2000,
+    "ioSpeed":          300,
+    "_note_io":         "300 Mp/s transfer rate for Download/Upload operations.",
+    "responseIncrease": 3,
+    "_note_ri":         "Response Increase 3 = +3D6 Matrix initiative dice. Also +1 bonus action per RI rating per SR3."
+  },
+
+  "hackingPool":    8,
+  "_note_hp":       "floor((INT 7 + MPCP 8) / 3) = 5 base, +1 Encephalon-1, +2 Math SPU-2 = 8 total.",
+
+  "computerSkill":   7,
+  "_note_cs":        "Computer 5 (Decking 7). Specialization used for all Matrix system operations.",
+
+  "electronicsSkill": 4,
+
+  "isVerified": false,
+  "_note_verified":  "No SRCharacter.json checksum — loaded manually for testing.",
+
+  "programs": [
+
+    "_comment_loaded": "--- LOADED (active memory) — 135 Mp total ---",
+
+    {
+      "name":       "Deception",
+      "rating":     6,
+      "multiplier": 5,
+      "sizeMp":     30,
+      "loaded":     true,
+      "_note":      "Reduces TN for Logon to Host/LTG/RTG, Graceful Logoff, Null Operation."
+    },
+    {
+      "name":       "Browse",
+      "rating":     6,
+      "multiplier": 3,
+      "sizeMp":     18,
+      "loaded":     true,
+      "_note":      "Reduces TN for Locate File, Locate Access Node, Locate Slave (all interrogation ops)."
+    },
+    {
+      "name":       "Analyze",
+      "rating":     5,
+      "multiplier": 4,
+      "sizeMp":     20,
+      "loaded":     true,
+      "_note":      "Reduces TN for all Analyze ops and Locate IC."
+    },
+    {
+      "name":       "Read/Write",
+      "rating":     6,
+      "multiplier": 2,
+      "sizeMp":     12,
+      "loaded":     true,
+      "_note":      "Reduces TN for Download Data, Upload Data, Edit File."
+    },
+    {
+      "name":       "Decrypt",
+      "rating":     5,
+      "multiplier": 5,
+      "sizeMp":     25,
+      "loaded":     true,
+      "_note":      "Reduces TN for Decrypt Access, Decrypt File, Decrypt Slave."
+    },
+    {
+      "name":       "Sleaze",
+      "rating":     6,
+      "multiplier": 5,
+      "sizeMp":     30,
+      "loaded":     true,
+      "_note":      "Baked into Detection Factor: DF = ceil((Masking + Sleaze) / 2). Higher = harder to detect. With Masking 5 and Sleaze 6: DF = ceil(11/2) = 6."
+    },
+
+    "_comment_unloaded": "--- UNLOADED (storage) — swap in as needed ---",
+
+    {
+      "name":       "Attack",
+      "rating":     6,
+      "multiplier": 5,
+      "sizeMp":     30,
+      "loaded":     false,
+      "_note":      "Offensive cybercombat. Swap in when IC combat is expected. Must unload 30 Mp first."
+    },
+    {
+      "name":       "Spoof",
+      "rating":     5,
+      "multiplier": 5,
+      "sizeMp":     25,
+      "loaded":     false,
+      "_note":      "Reduces TN for Control Slave, Edit Slave, Monitor Slave."
+    },
+    {
+      "name":       "Evaluate",
+      "rating":     5,
+      "multiplier": 2,
+      "sizeMp":     10,
+      "loaded":     false,
+      "_note":      "Required for Locate Paydata. Degrades by 1D6÷2 rating after each run (Matrix3 rule)."
+    },
+    {
+      "name":       "Scanner",
+      "rating":     5,
+      "multiplier": 5,
+      "sizeMp":     25,
+      "loaded":     false,
+      "_note":      "Reduces TN for Locate Decker. Useful when a security decker is suspected."
+    },
+    {
+      "name":       "Commlink",
+      "rating":     4,
+      "multiplier": 3,
+      "sizeMp":     12,
+      "loaded":     false,
+      "_note":      "Reduces TN for Make Comcall and Tap Comcall."
+    },
+    {
+      "name":       "Encrypt",
+      "rating":     5,
+      "multiplier": 3,
+      "sizeMp":     15,
+      "loaded":     false,
+      "_note":      "Raises TN for others to Decrypt your files. Rated encryption resists Decrypt ops."
+    }
+  ]
+}

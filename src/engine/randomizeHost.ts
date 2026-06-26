@@ -527,7 +527,7 @@ function roll1D3(): number { return Math.ceil(Math.random() * 3); }
 function roll2D3(): number { return roll1D3() + roll1D3(); }
 
 export function randomizeByDifficulty(
-  host: Host,
+  _host: Host,
   difficulty: 'Easy' | 'Average' | 'Hard',
 ): Partial<Host> {
   let sv: number;
