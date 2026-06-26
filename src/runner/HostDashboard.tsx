@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useRunner } from '@/runner/runnerContext';
 import { usePoolRoll } from '@/runner/usePoolRoll';
 import HackingPoolModal from '@/runner/HackingPoolModal';
+import CombatModal from '@/runner/CombatModal';
+import type { CombatResult } from '@/runner/CombatModal';
 import {
   OPERATION_DEFINITIONS,
   SECURITY_CODE_COLORS,
@@ -10,7 +12,7 @@ import {
   IC_CATEGORY_COLOR,
 } from '@/data/srTables';
 import { getEffectiveSubsystemRating } from '@/engine/securityEngine';
-import type { AlertLevel, LogEntryType, PersonaAttribute } from '@/types';
+import type { AlertLevel, LogEntryType, PersonaAttribute, ICInstance, Program } from '@/types';
 import { Button } from '@/components/ui/button';
 
 // ─── Alert color helper ───────────────────────────────────────────────────────
@@ -113,6 +115,7 @@ export default function HostDashboard() {
           session={session}
           dispatch={dispatch}
           addLog={addLog}
+          hackingPoolAvailable={hackingPoolAvailable}
         />
 
         {/* CENTER */}
@@ -257,10 +260,11 @@ function TopBar({ session, host, hackingPoolAvailable, onEndTurn, onDisconnect }
 
 // ─── Left Column ──────────────────────────────────────────────────────────────
 
-function LeftColumn({ session, dispatch, addLog }: {
+function LeftColumn({ session, dispatch, addLog, hackingPoolAvailable }: {
   session: import('@/types').RunnerSession;
-  dispatch: import('@/runner/runnerContext').RunnerAction extends infer A ? React.Dispatch<import('@/runner/runnerContext').RunnerAction> : never;
+  dispatch: React.Dispatch<import('@/runner/runnerContext').RunnerAction>;
   addLog: (type: LogEntryType, title: string, details?: string) => void;
+  hackingPoolAvailable: number;
 }) {
   return (
     <div
@@ -270,6 +274,7 @@ function LeftColumn({ session, dispatch, addLog }: {
       <PersonaPanel session={session} dispatch={dispatch} addLog={addLog} />
       <DamagePanel session={session} dispatch={dispatch} addLog={addLog} />
       <HackingPoolPanel session={session} dispatch={dispatch} />
+      <ProgramsPanel session={session} />
     </div>
   );
 }
@@ -559,6 +564,12 @@ function ActiveICPanel({ session, dispatch, addLog }: {
   dispatch: React.Dispatch<import('@/runner/runnerContext').RunnerAction>;
   addLog: (type: LogEntryType, title: string, details?: string) => void;
 }) {
+  const { hackingPoolAvailable } = useRunner();
+  const [combatTarget, setCombatTarget] = useState<ICInstance | null>(null);
+  const [attackProgram, setAttackProgram] = useState<Program | null>(null);
+  const [programPickerIC, setProgramPickerIC] = useState<ICInstance | null>(null);
+  const [noAttackError, setNoAttackError] = useState<string | null>(null);
+
   function crashIC(icId: string, suppress: boolean) {
     const ic = session.activeIC.find(i => i.id === icId);
     if (!ic) return;
@@ -570,8 +581,59 @@ function ActiveICPanel({ session, dispatch, addLog }: {
     }
   }
 
+  function openCombat(ic: ICInstance) {
+    setNoAttackError(null);
+    const attackProgs = session.loadedPrograms.filter(
+      p => p.name.toLowerCase().includes('attack') && p.loaded,
+    );
+    if (attackProgs.length === 0) {
+      setNoAttackError('No Attack program loaded');
+      return;
+    }
+    if (attackProgs.length === 1) {
+      setAttackProgram(attackProgs[0]);
+      setCombatTarget(ic);
+    } else {
+      setProgramPickerIC(ic);
+    }
+  }
+
+  function handleCombatResult(result: CombatResult) {
+    if (!combatTarget) return;
+
+    const newRating = combatTarget.currentRating - result.icDamage;
+
+    if (result.icDamage > 0 && !result.icCrashed) {
+      dispatch({ type: 'UPDATE_IC_RATING', payload: { icId: combatTarget.id, newRating } });
+    }
+
+    if (result.icCrashed) {
+      // inline confirm: dispatch handled in crash buttons rendered below
+      // For now open a quick crash dialog
+      setCombatTarget(null);
+      // We'll use a separate state for crash confirm
+      setPendingCrashIC(combatTarget);
+    } else {
+      setCombatTarget(null);
+    }
+
+    if (Object.keys(result.personaDamage).length > 0) {
+      dispatch({ type: 'DAMAGE_PERSONA', payload: result.personaDamage });
+    }
+    if (result.bodyStun > 0) dispatch({ type: 'TAKE_STUN', payload: result.bodyStun });
+    if (result.bodyPhys > 0) dispatch({ type: 'TAKE_PHYS', payload: result.bodyPhys });
+
+    addLog('combat', `Cybercombat vs ${combatTarget.type}-${combatTarget.rating}`, result.log);
+  }
+
+  const [pendingCrashIC, setPendingCrashIC] = useState<ICInstance | null>(null);
+
   return (
+    <>
     <PanelCard title="ACTIVE IC">
+      {noAttackError && (
+        <div className="text-[9px] mb-1" style={{ color: '#ef4444' }}>{noAttackError}</div>
+      )}
       {session.activeIC.length === 0 ? (
         <div className="text-[10px] text-[var(--color-muted-foreground)] py-2">No active IC</div>
       ) : (
@@ -582,15 +644,29 @@ function ActiveICPanel({ session, dispatch, addLog }: {
             return (
               <div
                 key={ic.id}
-                className="flex items-center gap-2 border p-2 text-[10px]"
+                className="flex flex-col gap-1 border p-2 text-[10px]"
                 style={{ borderColor: `${catColor}44` }}
               >
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: catColor }} />
-                <div className="flex-1 min-w-0">
-                  <span className="font-bold text-[var(--color-foreground)]">{def?.label ?? ic.type}</span>
-                  <span className="text-[var(--color-muted-foreground)] ml-1">-{ic.rating}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: catColor }} />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-bold text-[var(--color-foreground)]">{def?.label ?? ic.type}</span>
+                    <span className="text-[var(--color-muted-foreground)] ml-1">-{ic.rating}</span>
+                    {ic.currentRating !== ic.rating && (
+                      <span style={{ color: 'var(--color-primary)' }} className="ml-1">
+                        (cur {ic.currentRating})
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-1">
+                  <button
+                    onClick={() => openCombat(ic)}
+                    className="flex-1 text-[9px] border px-1.5 py-0.5 hover:bg-[var(--color-primary)]/10 transition-colors font-bold"
+                    style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                  >
+                    Combat
+                  </button>
                   <button
                     onClick={() => crashIC(ic.id, false)}
                     className="text-[9px] border border-[#ef4444] text-[#ef4444] px-1.5 py-0.5 hover:bg-[#ef4444]/10 transition-colors"
@@ -624,6 +700,105 @@ function ActiveICPanel({ session, dispatch, addLog }: {
         </div>
       )}
     </PanelCard>
+
+    {/* Program picker for multiple attack programs */}
+    {programPickerIC && (
+      <div
+        className="fixed inset-0 flex items-center justify-center z-50"
+        style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}
+      >
+        <div
+          className="border p-4 font-mono text-[11px] flex flex-col gap-3"
+          style={{
+            borderColor: 'var(--color-primary)',
+            backgroundColor: 'var(--color-card)',
+            minWidth: 280,
+          }}
+        >
+          <div className="text-[var(--color-primary)] font-bold tracking-widest">SELECT ATTACK PROGRAM</div>
+          {session.loadedPrograms
+            .filter(p => p.name.toLowerCase().includes('attack') && p.loaded)
+            .map((p) => (
+              <button
+                key={p.name}
+                onClick={() => {
+                  setAttackProgram(p);
+                  setCombatTarget(programPickerIC);
+                  setProgramPickerIC(null);
+                }}
+                className="border px-3 py-1.5 text-left hover:bg-[var(--color-primary)]/10 transition-colors"
+                style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+              >
+                {p.name} (Rating {p.rating})
+              </button>
+            ))}
+          <button
+            onClick={() => setProgramPickerIC(null)}
+            className="text-[9px] text-[var(--color-muted-foreground)] border border-[var(--color-border)] px-2 py-1 hover:text-[var(--color-foreground)] transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* Crash confirm after combat */}
+    {pendingCrashIC && (
+      <div
+        className="fixed inset-0 flex items-center justify-center z-50"
+        style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}
+      >
+        <div
+          className="border p-4 font-mono text-[11px] flex flex-col gap-3"
+          style={{
+            borderColor: '#ef4444',
+            backgroundColor: 'var(--color-card)',
+            minWidth: 300,
+          }}
+        >
+          <div className="font-bold tracking-widest" style={{ color: '#ef4444' }}>
+            IC CRASHED: {pendingCrashIC.type}-{pendingCrashIC.rating}
+          </div>
+          <div className="text-[var(--color-muted-foreground)]">Crash for tally, or suppress silently?</div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                crashIC(pendingCrashIC.id, false);
+                setPendingCrashIC(null);
+              }}
+              className="flex-1 border py-1.5 font-bold text-[10px] hover:bg-[#ef4444]/10 transition-colors"
+              style={{ borderColor: '#ef4444', color: '#ef4444' }}
+            >
+              Crash (+{pendingCrashIC.rating} tally)
+            </button>
+            <button
+              onClick={() => {
+                crashIC(pendingCrashIC.id, true);
+                setPendingCrashIC(null);
+              }}
+              className="flex-1 border py-1.5 font-bold text-[10px] hover:bg-[#f59e0b]/10 transition-colors"
+              style={{ borderColor: '#f59e0b', color: '#f59e0b' }}
+            >
+              Suppress (-1 DF)
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Combat Modal */}
+    {combatTarget && attackProgram && (
+      <CombatModal
+        ic={combatTarget}
+        attackProgram={attackProgram}
+        character={session.character}
+        session={session}
+        hackingPoolAvailable={hackingPoolAvailable}
+        onClose={() => { setCombatTarget(null); setAttackProgram(null); }}
+        onResult={handleCombatResult}
+      />
+    )}
+    </>
   );
 }
 
@@ -782,6 +957,42 @@ function NavigationPanel({ session, host, dispatch, addLog }: {
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Programs Panel ───────────────────────────────────────────────────────────
+
+function ProgramsPanel({ session }: {
+  session: import('@/types').RunnerSession;
+}) {
+  const loaded = session.loadedPrograms.filter(p => p.loaded);
+  const totalMp = loaded.reduce((sum, p) => sum + p.sizeMp, 0);
+  const maxMp = session.character.deck.activeMemoryMp;
+
+  return (
+    <PanelCard title="PROGRAMS">
+      <div className="flex justify-between text-[9px] text-[var(--color-muted-foreground)] mb-1">
+        <span>Memory</span>
+        <span>{totalMp}/{maxMp} Mp</span>
+      </div>
+      {loaded.length === 0 ? (
+        <div className="text-[9px] text-[var(--color-muted-foreground)]">No programs loaded</div>
+      ) : (
+        <div className="flex flex-col gap-0.5">
+          {loaded.map((p) => {
+            const isAttack = p.name.toLowerCase().includes('attack');
+            return (
+              <div key={p.name} className="flex justify-between text-[9px]">
+                <span style={{ color: isAttack ? 'var(--color-primary)' : 'var(--color-foreground)' }}>
+                  {p.name}
+                </span>
+                <span className="text-[var(--color-muted-foreground)]">{p.rating}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </PanelCard>
   );
 }
 

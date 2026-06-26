@@ -23,7 +23,8 @@ export type RunnerAction =
   | { type: 'SET_INITIATIVE';   payload: number }
   | { type: 'SET_SHUTDOWN';     payload: number | undefined }
   | { type: 'TICK_SHUTDOWN' }
-  | { type: 'CRASH_IC';         payload: { icId: string; suppress: boolean } };
+  | { type: 'CRASH_IC';         payload: { icId: string; suppress: boolean } }
+  | { type: 'UPDATE_IC_RATING'; payload: { icId: string; newRating: number } };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -174,6 +175,17 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
           securityTally: state.securityTally + crashed.rating,
         };
       }
+    }
+
+    case 'UPDATE_IC_RATING': {
+      return {
+        ...state,
+        activeIC: state.activeIC.map(ic =>
+          ic.id === action.payload.icId
+            ? { ...ic, currentRating: action.payload.newRating }
+            : ic
+        ),
+      };
     }
 
     default:
