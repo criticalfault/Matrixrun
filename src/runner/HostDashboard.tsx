@@ -50,22 +50,34 @@ function logTypeColor(type: LogEntryType): string {
   }
 }
 
-// ─── Program bonus helpers ────────────────────────────────────────────────────
+// ─── Detection Factor helper ──────────────────────────────────────────────────
 
-function getProgramBonuses(opKey: string, programs: Program[]): Array<{ name: string; rating: number }> {
-  const loaded = programs.filter(p => p.loaded);
-  const result: Array<{ name: string; rating: number }> = [];
-  for (const [progName, ops] of Object.entries(PROGRAM_OP_BONUS)) {
-    if (ops.includes(opKey)) {
-      const prog = loaded.find(p => p.name.toLowerCase().includes(progName.toLowerCase()));
-      if (prog) result.push({ name: prog.name, rating: prog.rating });
-    }
-  }
-  return result;
+function calcDetectionFactor(session: import('@/types').RunnerSession): number {
+  const masking = session.character.deck.masking - session.personaCondition.masking;
+  const effectiveMasking = Math.max(1, masking);
+  const sleaze = session.loadedPrograms.find(p => p.loaded && p.name.toLowerCase().includes('sleaze'));
+  const sleazeRating = sleaze?.rating ?? 0;
+  const base = Math.ceil((effectiveMasking + sleazeRating) / 2);
+  const suppressPenalty = (session.suppressedIC ?? []).length;
+  return Math.max(1, base - suppressPenalty);
 }
 
-function getSleazeProgram(programs: Program[]): Program | undefined {
-  return programs.filter(p => p.loaded).find(p => p.name.toLowerCase().includes('sleaze'));
+// ─── Program TN reduction helpers ────────────────────────────────────────────
+
+function getProgramTNReduction(opKey: string, programs: Program[]): { reduction: number; label: string } {
+  const loaded = programs.filter(p => p.loaded);
+  let reduction = 0;
+  const labels: string[] = [];
+  for (const [progName, ops] of Object.entries(PROGRAM_OP_BONUS)) {
+    if ((ops as string[]).includes(opKey)) {
+      const prog = loaded.find(p => p.name.toLowerCase().includes(progName.toLowerCase()));
+      if (prog) {
+        reduction += prog.rating;
+        labels.push(`${prog.name} -${prog.rating}`);
+      }
+    }
+  }
+  return { reduction, label: labels.join(', ') };
 }
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
@@ -88,19 +100,23 @@ export default function HostDashboard() {
     const op = ops[opKey];
     if (!op) return;
 
-    const tn = op.subsystem === 'none'
+    // Base TN from subsystem (or SV for 'none')
+    const rawTN = op.subsystem === 'none'
       ? host.securityValue
       : getEffectiveSubsystemRating(host, op.subsystem as Parameters<typeof getEffectiveSubsystemRating>[1], session.alertLevel);
 
-    const bonuses = getProgramBonuses(opKey, session.loadedPrograms);
-    const bonusDice = bonuses.reduce((s, b) => s + b.rating, 0);
-    const bonusLabel = bonuses.length > 0
-      ? ` (${bonuses.map(b => `${b.name} +${b.rating}`).join(', ')})`
-      : '';
+    // Utility programs reduce TN (minimum 2)
+    const { reduction, label: bonusLabel } = getProgramTNReduction(opKey, session.loadedPrograms);
+    const tn = Math.max(2, rawTN - reduction);
 
+    const rollLabel = bonusLabel
+      ? `${op.label} — TN ${tn} (${rawTN} - ${reduction} utility)`
+      : `${op.label} — TN ${tn}`;
+
+    // Decker rolls (base dice = Computer skill, pool added via modal)
     const result = await requestRoll({
-      label: `${op.label}${bonusLabel} — TN ${tn}`,
-      baseDice: session.character.computerSkill + bonusDice,
+      label: rollLabel,
+      baseDice: session.character.computerSkill,
       targetNumber: tn,
       requiredSuccesses: 1,
       cancelable: true,
@@ -108,27 +124,29 @@ export default function HostDashboard() {
 
     if (!result) return;
 
-    // Sleaze mitigation: if success and there's a tally cost, roll Sleaze to reduce it
-    let tally = result.success ? op.tallyOnSuccess : op.tallyOnFailure;
-    let sleazeNote = '';
-    if (result.success && op.tallyOnSuccess > 0) {
-      const sleaze = getSleazeProgram(session.loadedPrograms);
-      if (sleaze) {
-        const sleazeRoll = rollDice(sleaze.rating, host.securityValue, `Sleaze (${sleaze.name} ${sleaze.rating})`);
-        const reduction = sleazeRoll.successes;
-        tally = Math.max(0, tally - reduction);
-        sleazeNote = ` | Sleaze: ${sleazeRoll.successes} successes → tally reduced by ${reduction}`;
-        if (reduction > 0 && tally === 0) sleazeNote += ' (fully mitigated)';
-      }
+    // Host Security Test (auto-roll) — SV dice vs Detection Factor
+    const df = calcDetectionFactor(session);
+    const secRoll = rollDice(host.securityValue, df, `Host Security Test (SV ${host.securityValue} vs DF ${df})`);
+    const hostSuccesses = secRoll.successes;
+
+    // Tally always increases by host successes from Security Test
+    if (hostSuccesses > 0) {
+      dispatch({ type: 'ADD_TALLY', payload: hostSuccesses });
     }
 
-    if (tally > 0) dispatch({ type: 'ADD_TALLY', payload: tally });
+    // Net successes = decker successes - host successes (need ≥1 for success)
+    const netSuccesses = result.netSuccesses - hostSuccesses;
+    const opSuccess = netSuccesses >= 1 && !result.isCatastrophic;
+
+    const tallyNote = hostSuccesses > 0
+      ? ` | Host: ${hostSuccesses} successes → +${hostSuccesses} tally`
+      : ' | Host: no successes';
 
     addLog(
       'operation',
-      `${op.label}: ${result.success ? 'SUCCESS' : 'FAILURE'}`,
-      `${result.narrative}${tally > 0 ? ` (+${tally} tally)` : ''}${sleazeNote}`,
-      result.rolls,
+      `${op.label}: ${opSuccess ? 'SUCCESS' : 'FAILURE'}`,
+      `Decker: ${result.netSuccesses} hits, TN ${tn}${tallyNote}`,
+      [...(result.rolls ?? []), secRoll],
     );
   }
 
@@ -500,6 +518,8 @@ function HackingPoolPanel({ session, dispatch }: {
   dispatch: React.Dispatch<import('@/runner/runnerContext').RunnerAction>;
 }) {
   const opsAvailable = session.hackingPoolTotal - session.hackingPoolUsed - session.suppressionPool;
+  const df = calcDetectionFactor(session);
+  const dfDegraded = (session.suppressedIC ?? []).length > 0;
 
   return (
     <PanelCard title="HACKING POOL">
@@ -512,6 +532,12 @@ function HackingPoolPanel({ session, dispatch }: {
           <span className="text-xl font-bold" style={{ color: 'var(--color-primary)' }}>{session.hackingPoolTotal}</span>
           <span className="text-[8px] text-[var(--color-muted-foreground)]">TOTAL</span>
         </div>
+      </div>
+
+      {/* Detection Factor */}
+      <div className="flex justify-between text-[9px] mt-1">
+        <span className="text-[var(--color-muted-foreground)]">Detection Factor</span>
+        <span className="font-bold" style={{ color: dfDegraded ? '#f59e0b' : 'var(--color-primary)' }}>{df}</span>
       </div>
 
       {/* Pool breakdown */}
@@ -908,7 +934,8 @@ function OperationsPanel({ opKeys, onRun, host, alertLevel, programs }: {
             ? host.securityValue
             : getEffectiveSubsystemRating(host, op.subsystem as Parameters<typeof getEffectiveSubsystemRating>[1], alertLevel);
 
-          const bonuses = getProgramBonuses(key, programs);
+          const { reduction, label: reductionLabel } = getProgramTNReduction(key, programs);
+          const effectiveTN = Math.max(2, tn - reduction);
 
           return (
             <button
@@ -918,17 +945,14 @@ function OperationsPanel({ opKeys, onRun, host, alertLevel, programs }: {
             >
               <div className="text-[10px] font-bold text-[var(--color-foreground)] leading-tight">{op.label}</div>
               <div className="text-[9px] text-[var(--color-muted-foreground)] mt-0.5">
-                TN {tn}
+                <span className="font-bold" style={{ color: 'var(--color-foreground)' }}>TN {effectiveTN}</span>
                 {op.tallyOnFailure > 0 && (
-                  <span className="text-[#ef4444]/70"> / Fail +{op.tallyOnFailure}</span>
-                )}
-                {op.tallyOnSuccess > 0 && (
-                  <span className="text-[#f59e0b]/70"> / OK +{op.tallyOnSuccess}</span>
+                  <span className="text-[#ef4444]/70"> / Fail+{op.tallyOnFailure}</span>
                 )}
               </div>
-              {bonuses.length > 0 && (
+              {reduction > 0 && (
                 <div className="text-[8px] mt-0.5" style={{ color: '#4ade8088' }}>
-                  {bonuses.map(b => `+${b.rating} ${b.name}`).join(', ')}
+                  {reductionLabel}
                 </div>
               )}
             </button>
@@ -1094,14 +1118,14 @@ function ProgramsPanel({ session }: {
                   </span>
                   <span className="text-[var(--color-muted-foreground)]">{p.rating}</span>
                 </div>
-                {boostedOps.length > 0 && (
-                  <div className="text-[8px] pl-1" style={{ color: '#4ade8066' }}>
-                    +{p.rating}: {boostedOps.slice(0, 3).join(', ')}{boostedOps.length > 3 ? '…' : ''}
-                  </div>
-                )}
                 {isSleaze && (
                   <div className="text-[8px] pl-1" style={{ color: '#a855f766' }}>
-                    Tally mitigation on success
+                    DF: +{p.rating} (part of Detection Factor)
+                  </div>
+                )}
+                {!isSleaze && boostedOps.length > 0 && (
+                  <div className="text-[8px] pl-1" style={{ color: '#4ade8066' }}>
+                    -{p.rating} TN: {boostedOps.slice(0, 3).join(', ')}{boostedOps.length > 3 ? '…' : ''}
                   </div>
                 )}
                 {isArmor && (
