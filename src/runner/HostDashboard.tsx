@@ -13,8 +13,9 @@ import {
   PROGRAM_OP_BONUS,
 } from '@/data/srTables';
 import { getEffectiveSubsystemRating } from '@/engine/securityEngine';
+import { calcDetectionFactor, getProgramTNReduction, rollHostSecurityTest } from '@/runner/runnerHelpers';
 import { rollDice } from '@/engine/diceEngine';
-import type { AlertLevel, LogEntryType, PersonaAttribute, ICInstance, Program } from '@/types';
+import type { AlertLevel, LogEntryType, PersonaAttribute, ICInstance, Program, HostFile, PaydataPoint } from '@/types';
 import { Button } from '@/components/ui/button';
 
 // ─── Alert color helper ───────────────────────────────────────────────────────
@@ -48,36 +49,6 @@ function logTypeColor(type: LogEntryType): string {
     case 'system':        return '#a855f7';
     default:              return 'var(--color-muted-foreground)';
   }
-}
-
-// ─── Detection Factor helper ──────────────────────────────────────────────────
-
-function calcDetectionFactor(session: import('@/types').RunnerSession): number {
-  const masking = session.character.deck.masking - session.personaCondition.masking;
-  const effectiveMasking = Math.max(1, masking);
-  const sleaze = session.loadedPrograms.find(p => p.loaded && p.name.toLowerCase().includes('sleaze'));
-  const sleazeRating = sleaze?.rating ?? 0;
-  const base = Math.ceil((effectiveMasking + sleazeRating) / 2);
-  const suppressPenalty = (session.suppressedIC ?? []).length;
-  return Math.max(1, base - suppressPenalty);
-}
-
-// ─── Program TN reduction helpers ────────────────────────────────────────────
-
-function getProgramTNReduction(opKey: string, programs: Program[]): { reduction: number; label: string } {
-  const loaded = programs.filter(p => p.loaded);
-  let reduction = 0;
-  const labels: string[] = [];
-  for (const [progName, ops] of Object.entries(PROGRAM_OP_BONUS)) {
-    if ((ops as string[]).includes(opKey)) {
-      const prog = loaded.find(p => p.name.toLowerCase().includes(progName.toLowerCase()));
-      if (prog) {
-        reduction += prog.rating;
-        labels.push(`${prog.name} -${prog.rating}`);
-      }
-    }
-  }
-  return { reduction, label: labels.join(', ') };
 }
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
@@ -125,9 +96,7 @@ export default function HostDashboard() {
     if (!result) return;
 
     // Host Security Test (auto-roll) — SV dice vs Detection Factor
-    const df = calcDetectionFactor(session);
-    const secRoll = rollDice(host.securityValue, df, `Host Security Test (SV ${host.securityValue} vs DF ${df})`);
-    const hostSuccesses = secRoll.successes;
+    const { hostSuccesses, secRoll } = rollHostSecurityTest(session, host.securityValue);
 
     // Tally always increases by host successes from Security Test
     if (hostSuccesses > 0) {
@@ -180,6 +149,7 @@ export default function HostDashboard() {
           {host ? (
             <>
               <HostInfoCard host={host} alertLevel={session.alertLevel} />
+              <FilesPanel host={host} />
               <ActiveICPanel
                 session={session}
                 dispatch={dispatch}
@@ -986,6 +956,9 @@ function RightColumn({ session, host, dispatch, addLog, detectionFactorPenalty }
       className="flex flex-col overflow-hidden"
       style={{ width: 280, flexShrink: 0 }}
     >
+      {/* Haul summary */}
+      <HaulPanel session={session} host={host} />
+
       {/* Log */}
       <div className="flex flex-col flex-1 overflow-hidden p-2">
         <div className="text-[9px] tracking-widest uppercase text-[var(--color-muted-foreground)] mb-2 px-1">
@@ -1139,6 +1112,378 @@ function ProgramsPanel({ session }: {
         </div>
       )}
     </PanelCard>
+  );
+}
+
+// ─── Files Panel ─────────────────────────────────────────────────────────────
+
+type FileState = 'located' | 'decrypted' | 'read' | 'downloaded';
+type BombPendingAction = { fileId: string; action: 'read' | 'download' } | null;
+
+function DefenseBadge({ defense }: { defense: HostFile['defense'] }) {
+  if (defense === 'none') return null;
+  const badges: React.ReactNode[] = [];
+  if (defense === 'encrypted' || defense === 'encryptedAndBomb') {
+    badges.push(
+      <span key="enc" className="text-[9px] font-bold px-1 py-0.5 border" style={{ color: '#eab308', borderColor: '#eab30844', backgroundColor: '#eab30818' }}>
+        🔒 ENC
+      </span>
+    );
+  }
+  if (defense === 'dataBomb' || defense === 'encryptedAndBomb') {
+    badges.push(
+      <span key="bomb" className="text-[9px] font-bold px-1 py-0.5 border" style={{ color: '#ef4444', borderColor: '#ef444444', backgroundColor: '#ef444418' }}>
+        💣 BOMB
+      </span>
+    );
+  }
+  if (defense === 'worms') {
+    badges.push(
+      <span key="worm" className="text-[9px] font-bold px-1 py-0.5 border" style={{ color: '#f97316', borderColor: '#f9731644', backgroundColor: '#f9731618' }}>
+        🐛 WORM
+      </span>
+    );
+  }
+  return <div className="flex gap-1 flex-wrap">{badges}</div>;
+}
+
+function FilesPanel({ host }: { host: import('@/types').Host }) {
+  const { session, dispatch, addLog } = useRunner();
+  const { pendingRoll: filesPendingRoll, requestRoll: filesRequestRoll } = usePoolRoll();
+  const [tab, setTab] = useState<'files' | 'paydata'>('files');
+  const [fileStates, setFileStates] = useState<Record<string, FileState>>({});
+  const [bombPending, setBombPending] = useState<BombPendingAction>(null);
+
+  // Reset when host changes
+  useEffect(() => {
+    setFileStates({});
+    setBombPending(null);
+  }, [host.id]);
+
+  // ── Shared roll logic ──────────────────────────────────────────────────────
+
+  async function runFileOp(opKey: string, label: string): Promise<boolean> {
+    const rawTN = getEffectiveSubsystemRating(host, opKey === 'LocateFile' || opKey === 'LocatePaydata' ? 'index' : 'files', session.alertLevel);
+    const { reduction, label: bonusLabel } = getProgramTNReduction(opKey, session.loadedPrograms);
+    const tn = Math.max(2, rawTN - reduction);
+
+    const rollLabel = bonusLabel
+      ? `${label} — TN ${tn} (${rawTN} - ${reduction} utility)`
+      : `${label} — TN ${tn}`;
+
+    const result = await filesRequestRoll({
+      label: rollLabel,
+      baseDice: session.character.computerSkill,
+      targetNumber: tn,
+      requiredSuccesses: 1,
+      cancelable: true,
+    });
+    if (!result) return false;
+
+    const { hostSuccesses, secRoll } = rollHostSecurityTest(session, host.securityValue);
+    if (hostSuccesses > 0) dispatch({ type: 'ADD_TALLY', payload: hostSuccesses });
+
+    const netSuccesses = result.netSuccesses - hostSuccesses;
+    const opSuccess = netSuccesses >= 1 && !result.isCatastrophic;
+    const tallyNote = hostSuccesses > 0
+      ? ` | Host: ${hostSuccesses} hits → +${hostSuccesses} tally`
+      : ' | Host: no hits';
+
+    addLog(
+      'operation',
+      `${label}: ${opSuccess ? 'SUCCESS' : 'FAILURE'}`,
+      `Decker: ${result.netSuccesses} hits, TN ${tn}${tallyNote}`,
+      [...(result.rolls ?? []), secRoll],
+    );
+    return opSuccess;
+  }
+
+  // ── Data Bomb trigger ──────────────────────────────────────────────────────
+
+  async function triggerDataBomb(file: HostFile) {
+    const rating = file.bombRating ?? 4;
+    const bod = session.character.deck.bod - session.personaCondition.bod;
+    const bombRoll = rollDice(rating, bod, `Data Bomb (rating ${rating}) vs Bod ${bod}`);
+    const physDmg = bombRoll.successes;
+    if (physDmg > 0) dispatch({ type: 'TAKE_PHYS', payload: physDmg });
+    dispatch({ type: 'ADD_TALLY', payload: rating });
+    addLog(
+      'damage',
+      `DATA BOMB triggered on "${file.name}"`,
+      `Bomb rating ${rating} — ${physDmg} Physical damage dealt. +${rating} tally.`,
+      [bombRoll],
+    );
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+
+  async function handleLocateFile(file: HostFile) {
+    const ok = await runFileOp('LocateFile', `Locate File: ${file.name}`);
+    if (ok) setFileStates(s => ({ ...s, [file.id]: 'located' }));
+  }
+
+  async function handleDecrypt(file: HostFile) {
+    const ok = await runFileOp('ReadFile', `Decrypt: ${file.name}`);
+    if (ok) setFileStates(s => ({ ...s, [file.id]: 'decrypted' }));
+  }
+
+  function requestAccessWithBombCheck(file: HostFile, action: 'read' | 'download') {
+    const hasBomb = file.defense === 'dataBomb' || file.defense === 'encryptedAndBomb';
+    if (hasBomb) {
+      setBombPending({ fileId: file.id, action });
+    } else {
+      void executeFileAccess(file, action);
+    }
+  }
+
+  async function executeFileAccess(file: HostFile, action: 'read' | 'download') {
+    setBombPending(null);
+    const hasBomb = file.defense === 'dataBomb' || file.defense === 'encryptedAndBomb';
+    if (hasBomb) await triggerDataBomb(file);
+
+    const opKey = action === 'read' ? 'ReadFile' : 'DownloadFile';
+    const opLabel = action === 'read' ? `Read File: ${file.name}` : `Download File: ${file.name}`;
+    const ok = await runFileOp(opKey, opLabel);
+    if (ok) {
+      const newState: FileState = action === 'read' ? 'read' : 'downloaded';
+      setFileStates(s => ({ ...s, [file.id]: newState }));
+    }
+  }
+
+  async function handleLocatePaydata(pd: PaydataPoint) {
+    const ok = await runFileOp('LocatePaydata', `Locate Paydata: ${pd.name}`);
+    if (ok) {
+      if (!session.foundPaydata.includes(pd.id)) {
+        dispatch({ type: 'FIND_PAYDATA', payload: pd.id });
+      }
+      addLog('operation', `Paydata found: ${pd.name}`, `Value: ¥${pd.value.toLocaleString()}`);
+    }
+  }
+
+  const files = host.files ?? [];
+  const paydata = host.paydata ?? [];
+
+  return (
+    <>
+    <PanelCard title="HOST FILES">
+      {/* Tabs */}
+      <div className="flex gap-0 mb-2 border-b border-[var(--color-border)]">
+        {(['files', 'paydata'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className="px-3 py-1 text-[9px] tracking-wider uppercase transition-colors"
+            style={{
+              color: tab === t ? 'var(--color-primary)' : 'var(--color-muted-foreground)',
+              borderBottom: tab === t ? '2px solid var(--color-primary)' : '2px solid transparent',
+              marginBottom: -1,
+            }}
+          >
+            {t === 'files' ? `Data Files (${files.length})` : `Paydata (${paydata.length})`}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'files' && (
+        <div className="flex flex-col gap-1.5">
+          {files.length === 0 ? (
+            <div className="text-[9px] text-[var(--color-muted-foreground)] py-1">No files on this host</div>
+          ) : (
+            files.map(file => {
+              const st = fileStates[file.id];
+              const isLocated = !!st;
+              const isEncrypted = file.defense === 'encrypted' || file.defense === 'encryptedAndBomb';
+              const isDecrypted = st === 'decrypted' || st === 'read' || st === 'downloaded';
+              const needsDecrypt = isEncrypted && !isDecrypted;
+              const canAccess = isLocated && !needsDecrypt;
+
+              // Status label
+              let statusLabel = '';
+              let statusColor = 'var(--color-muted-foreground)';
+              if (!st) { statusLabel = 'unlocated'; }
+              else if (st === 'located' && needsDecrypt) { statusLabel = 'locked'; statusColor = '#eab308'; }
+              else if (st === 'located') { statusLabel = 'located'; statusColor = 'var(--color-primary)'; }
+              else if (st === 'decrypted') { statusLabel = 'decrypted'; statusColor = '#22c55e'; }
+              else if (st === 'read') { statusLabel = 'read'; statusColor = '#22c55e'; }
+              else if (st === 'downloaded') { statusLabel = 'downloaded'; statusColor = '#22c55e'; }
+
+              return (
+                <div
+                  key={file.id}
+                  className="border border-[var(--color-border)] p-2 hover:border-[var(--color-primary)]/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] font-bold text-[var(--color-foreground)] truncate">{file.name}</div>
+                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        <span className="text-[9px] text-[var(--color-muted-foreground)]">{file.sizeMp} Mp</span>
+                        <DefenseBadge defense={file.defense} />
+                        <span className="text-[9px] font-bold" style={{ color: statusColor }}>{statusLabel}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Data bomb warning inline */}
+                  {bombPending?.fileId === file.id && (
+                    <div className="border border-[#ef4444] p-2 mb-2" style={{ backgroundColor: '#ef444410' }}>
+                      <div className="text-[9px] font-bold mb-1" style={{ color: '#ef4444' }}>
+                        ⚠ DATA BOMB WILL TRIGGER (rating {file.bombRating ?? 4})
+                      </div>
+                      <div className="text-[9px] text-[var(--color-muted-foreground)] mb-2">
+                        Bomb rolls {file.bombRating ?? 4} dice vs your Bod. Physical damage + tally.
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => void executeFileAccess(file, bombPending.action)}
+                          className="flex-1 text-[9px] border border-[#ef4444] text-[#ef4444] px-2 py-1 hover:bg-[#ef4444]/10 transition-colors font-bold"
+                        >
+                          Accept risk & {bombPending.action}
+                        </button>
+                        <button
+                          onClick={() => setBombPending(null)}
+                          className="text-[9px] border border-[var(--color-border)] text-[var(--color-muted-foreground)] px-2 py-1 hover:text-[var(--color-foreground)] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="flex gap-1 flex-wrap">
+                    {!isLocated && (
+                      <button
+                        onClick={() => void handleLocateFile(file)}
+                        className="text-[9px] border border-[var(--color-border)] text-[var(--color-muted-foreground)] px-2 py-0.5 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+                      >
+                        Locate
+                      </button>
+                    )}
+                    {isLocated && needsDecrypt && (
+                      <button
+                        onClick={() => void handleDecrypt(file)}
+                        className="text-[9px] border border-[#eab308] text-[#eab308] px-2 py-0.5 hover:bg-[#eab308]/10 transition-colors"
+                      >
+                        Decrypt
+                      </button>
+                    )}
+                    {canAccess && st !== 'read' && st !== 'downloaded' && (
+                      <button
+                        onClick={() => requestAccessWithBombCheck(file, 'read')}
+                        className="text-[9px] border border-[var(--color-border)] text-[var(--color-muted-foreground)] px-2 py-0.5 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+                      >
+                        Read
+                      </button>
+                    )}
+                    {canAccess && st !== 'downloaded' && (
+                      <button
+                        onClick={() => requestAccessWithBombCheck(file, 'download')}
+                        className="text-[9px] border border-[var(--color-border)] text-[var(--color-muted-foreground)] px-2 py-0.5 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+                      >
+                        Download
+                      </button>
+                    )}
+                  </div>
+
+                  {/* File description shown after read */}
+                  {(st === 'read' || st === 'downloaded') && file.description && (
+                    <div className="mt-1 text-[9px] text-[var(--color-muted-foreground)] border-l-2 pl-2" style={{ borderLeftColor: '#22c55e' }}>
+                      {file.description}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {tab === 'paydata' && (
+        <div className="flex flex-col gap-1.5">
+          {paydata.length === 0 ? (
+            <div className="text-[9px] text-[var(--color-muted-foreground)] py-1">No paydata on this host</div>
+          ) : (
+            paydata.map(pd => {
+              const isFound = session.foundPaydata.includes(pd.id);
+              return (
+                <div
+                  key={pd.id}
+                  className="border p-2 transition-colors"
+                  style={{ borderColor: isFound ? '#22c55e44' : 'var(--color-border)' }}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-[var(--color-foreground)] truncate">{pd.name}</span>
+                        {isFound && (
+                          <span className="text-[8px] font-bold px-1 py-0.5 flex-shrink-0" style={{ color: '#22c55e', backgroundColor: '#22c55e18', border: '1px solid #22c55e44' }}>
+                            FOUND
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className="text-[9px] font-bold" style={{ color: isFound ? '#22c55e' : 'var(--color-muted-foreground)' }}>
+                          ¥{pd.value.toLocaleString()}
+                        </span>
+                        <span className="text-[9px] text-[var(--color-muted-foreground)]">{pd.dataSizeMp} Mp</span>
+                        {pd.defense !== 'none' && (
+                          <span className="text-[9px] text-[#f97316]">{pd.defense}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {!isFound && (
+                    <button
+                      onClick={() => void handleLocatePaydata(pd)}
+                      className="text-[9px] border border-[var(--color-border)] text-[var(--color-muted-foreground)] px-2 py-0.5 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+                    >
+                      Locate Paydata
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </PanelCard>
+
+    {/* FilesPanel needs its own HackingPoolModal instance */}
+    {filesPendingRoll && <HackingPoolModal request={filesPendingRoll} />}
+    </>
+  );
+}
+
+// ─── Haul Panel ───────────────────────────────────────────────────────────────
+
+function HaulPanel({ session, host }: {
+  session: import('@/types').RunnerSession;
+  host: import('@/types').Host | undefined;
+}) {
+  const foundItems = (host?.paydata ?? []).filter(pd => session.foundPaydata.includes(pd.id));
+  const totalValue = foundItems.reduce((sum, pd) => sum + pd.value, 0);
+
+  return (
+    <div className="border-b border-[var(--color-border)] p-2 flex-shrink-0">
+      <div className="text-[9px] tracking-widest uppercase text-[var(--color-muted-foreground)] mb-1.5">HAUL</div>
+      {foundItems.length === 0 ? (
+        <div className="text-[9px] text-[var(--color-muted-foreground)] italic">No paydata secured</div>
+      ) : (
+        <>
+          <div className="text-[11px] font-bold mb-1" style={{ color: '#22c55e' }}>
+            ¥{totalValue.toLocaleString()} secured
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {foundItems.map(pd => (
+              <div key={pd.id} className="flex justify-between text-[9px]">
+                <span className="text-[var(--color-muted-foreground)] truncate mr-2">{pd.name}</span>
+                <span style={{ color: '#22c55e' }}>¥{pd.value.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
