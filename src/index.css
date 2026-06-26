@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+@theme {
+  /* Matrix cyberpunk colour palette */
+  --color-background: #080c08;
+  --color-foreground: #a0f0a0;
+
+  --color-card: #0d120d;
+  --color-card-foreground: #a0f0a0;
+
+  --color-popover: #0d120d;
+  --color-popover-foreground: #a0f0a0;
+
+  --color-primary: #00ff41;
+  --color-primary-foreground: #080c08;
+
+  --color-secondary: #0a1f0a;
+  --color-secondary-foreground: #00ff41;
+
+  --color-muted: #111a11;
+  --color-muted-foreground: #4a7a4a;
+
+  --color-accent: #00d4ff;
+  --color-accent-foreground: #080c08;
+
+  /* Alert state colours */
+  --color-alert-passive: #f59e0b;
+  --color-alert-active: #ef4444;
+  --color-alert-shutdown: #dc2626;
+
+  /* Security code colours */
+  --color-sec-blue: #3b82f6;
+  --color-sec-green: #22c55e;
+  --color-sec-orange: #f97316;
+  --color-sec-red: #ef4444;
+  --color-sec-uv: #a855f7;
+
+  /* IC status colours */
+  --color-ic-dormant: #4a7a4a;
+  --color-ic-active: #ef4444;
+  --color-ic-crashed: #374137;
+
+  --color-border: #1a2e1a;
+  --color-input: #0d120d;
+  --color-ring: #00ff41;
+
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #080c08;
+
+  --radius: 0.25rem;
+
+  --font-mono: "Courier New", Courier, monospace;
+  --font-sans: "Courier New", Courier, monospace;
+}
+
+* {
+  border-color: var(--color-border);
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Matrix green glow effect for primary elements */
+.matrix-glow {
+  text-shadow: 0 0 8px var(--color-primary), 0 0 16px rgba(0, 255, 65, 0.3);
+}
+
+.matrix-glow-border {
+  box-shadow: 0 0 8px rgba(0, 255, 65, 0.2), inset 0 0 8px rgba(0, 255, 65, 0.05);
+}
+
+/* Scanline overlay effect */
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Damage track boxes (condition monitor) */
+.damage-box {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-primary);
+  display: inline-block;
+}
+
+.damage-box.filled {
+  background-color: var(--color-primary);
+}
+
+.damage-box.deadly {
+  border-color: var(--color-destructive);
+  background-color: var(--color-destructive);
+}
+
+/* Security tally pulse when tally is high */
+@keyframes tally-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.tally-danger {
+  animation: tally-pulse 1s ease-in-out infinite;
+  color: var(--color-alert-active);
+}
+
+/* Alert state body classes — applied to root during play */
+body.alert-passive {
+  --color-primary: #f59e0b;
+  --color-border: #3a2e1a;
+}
+
+body.alert-active {
+  --color-primary: #ef4444;
+  --color-border: #3a1a1a;
+}
+
+@keyframes shutdown-flash {
+  0%, 100% { background-color: var(--color-background); }
+  50% { background-color: #1a0000; }
+}
+
+body.alert-shutdown {
+  animation: shutdown-flash 0.5s ease-in-out infinite;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
+}
