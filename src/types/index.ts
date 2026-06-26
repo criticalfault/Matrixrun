@@ -339,6 +339,7 @@ export interface RunnerSession {
   // Hacking Pool management
   hackingPoolTotal: number;
   hackingPoolUsed: number;
+  suppressionPool: number;  // dice held for automatic defense vs IC counterattacks
   // Initiative / turn tracking
   combatTurn: number;
   combatPass: number;

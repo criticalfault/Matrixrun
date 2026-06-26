@@ -22,6 +22,7 @@ interface CombatModalProps {
   character: CharacterSheet;
   session: RunnerSession;
   hackingPoolAvailable: number;
+  suppressionPool: number;
   onClose: () => void;
   onResult: (result: CombatResult) => void;
 }
@@ -169,6 +170,7 @@ export default function CombatModal({
   character,
   session,
   hackingPoolAvailable,
+  suppressionPool,
   onClose,
   onResult,
 }: CombatModalProps) {
@@ -243,7 +245,7 @@ export default function CombatModal({
 
   const handleDefenseRoll = useCallback(() => {
     if (!icAttackRoll) return;
-    const defDice = effDef + defensePool;
+    const defDice = effDef + suppressionPool + defensePool;
     const defTN = Math.max(1, ic.currentRating - icNetDamage);
     const dRoll = rollDice(defDice, defTN, `Decker defense (${defAttrLabel})`);
     setDeckerDefenseRoll(dRoll);
@@ -454,6 +456,15 @@ export default function CombatModal({
                   value={`${Math.max(1, ic.currentRating - icNetDamage)} (after -${icNetDamage} damage)`}
                 />
                 <InfoRow label="Defense attribute" value={`${defAttrLabel} (base ${defBase} - ${defDmg} dmg = eff ${effDef})`} />
+                {suppressionPool > 0 && (
+                  <InfoRow label="Auto-defense (suppression)" value={`+${suppressionPool} dice`} />
+                )}
+                <InfoRow
+                  label="Defense dice total"
+                  value={suppressionPool > 0
+                    ? `${effDef} attr + ${suppressionPool} suppress + ${defensePool} extra = ${effDef + suppressionPool + defensePool}`
+                    : `${effDef} attr + ${defensePool} extra = ${effDef + defensePool}`}
+                />
                 <InfoRow label="Decker defense TN" value={String(Math.max(1, ic.currentRating - icNetDamage))} highlight />
               </div>
 
@@ -466,7 +477,7 @@ export default function CombatModal({
               {/* Defense pool slider */}
               {!counterDone && (
                 <PoolSlider
-                  label="Defense hacking pool"
+                  label={suppressionPool > 0 ? `Additional defense pool (${suppressionPool} suppression auto-applied)` : 'Defense hacking pool'}
                   value={defensePool}
                   max={hackingPoolAvailable - offensePool}
                   onChange={setDefensePool}

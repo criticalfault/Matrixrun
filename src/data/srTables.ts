@@ -417,6 +417,17 @@ export const KILLER_DAMAGE_BY_CODE: Record<SecurityCode, DamageLevel> = {
   UV:     'D',
 };
 
+// ─── Program → Operation Bonus Mapping ───────────────────────────────────────
+
+export const PROGRAM_OP_BONUS: Record<string, string[]> = {
+  'Browse':         ['LocateFile', 'ReadFile', 'DownloadFile', 'LocatePaydata'],
+  'Read/Write':     ['ReadFile', 'EditFile'],
+  'Analyze':        ['AnalyzeHost', 'AnalyzeSubsystem', 'AnalyzeIC'],
+  'Evaluate':       ['LocatePaydata'],
+  'Decrypt':        ['ReadFile', 'DownloadFile'],
+  'Remote Control': ['ControlSlave'],
+};
+
 // ─── Worm Subtypes ────────────────────────────────────────────────────────────
 
 export const WORM_DEFINITIONS: Record<WormSubtype, { label: string; effect: string }> = {

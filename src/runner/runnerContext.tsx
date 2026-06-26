@@ -24,7 +24,8 @@ export type RunnerAction =
   | { type: 'SET_SHUTDOWN';     payload: number | undefined }
   | { type: 'TICK_SHUTDOWN' }
   | { type: 'CRASH_IC';         payload: { icId: string; suppress: boolean } }
-  | { type: 'UPDATE_IC_RATING'; payload: { icId: string; newRating: number } };
+  | { type: 'UPDATE_IC_RATING'; payload: { icId: string; newRating: number } }
+  | { type: 'SET_SUPPRESSION_POOL'; payload: number };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,7 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
         loadedPrograms: character.programs ?? [],
         hackingPoolTotal: calcHackingPool(character),
         hackingPoolUsed: 0,
+        suppressionPool: 0,
         combatTurn: 1,
         combatPass: 1,
         initiative: 0,
@@ -90,9 +92,13 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
       return {
         ...state,
         hackingPoolUsed: 0,
+        suppressionPool: 0,
         combatTurn: state.combatTurn + 1,
         combatPass: 1,
       };
+
+    case 'SET_SUPPRESSION_POOL':
+      return { ...state, suppressionPool: action.payload };
 
     case 'ADVANCE_HOST': {
       const nextHostId = action.payload;
@@ -220,6 +226,7 @@ const EMPTY_SESSION: RunnerSession = {
   loadedPrograms: [],
   hackingPoolTotal: 0,
   hackingPoolUsed: 0,
+  suppressionPool: 0,
   combatTurn: 1,
   combatPass: 1,
   initiative: 0,
@@ -231,7 +238,7 @@ const EMPTY_SESSION: RunnerSession = {
 export function RunnerProvider({ children }: { children: ReactNode }) {
   const [session, dispatch] = useReducer(reducer, EMPTY_SESSION);
 
-  const hackingPoolAvailable = session.hackingPoolTotal - session.hackingPoolUsed;
+  const hackingPoolAvailable = session.hackingPoolTotal - session.hackingPoolUsed - session.suppressionPool;
   const host = currentHost(session);
   const detectionFactorPenalty = (session.suppressedIC ?? []).length;
 

@@ -10,8 +10,10 @@ import {
   SECURITY_CODE_COLORS,
   IC_DEFINITIONS,
   IC_CATEGORY_COLOR,
+  PROGRAM_OP_BONUS,
 } from '@/data/srTables';
 import { getEffectiveSubsystemRating } from '@/engine/securityEngine';
+import { rollDice } from '@/engine/diceEngine';
 import type { AlertLevel, LogEntryType, PersonaAttribute, ICInstance, Program } from '@/types';
 import { Button } from '@/components/ui/button';
 
@@ -48,6 +50,24 @@ function logTypeColor(type: LogEntryType): string {
   }
 }
 
+// ─── Program bonus helpers ────────────────────────────────────────────────────
+
+function getProgramBonuses(opKey: string, programs: Program[]): Array<{ name: string; rating: number }> {
+  const loaded = programs.filter(p => p.loaded);
+  const result: Array<{ name: string; rating: number }> = [];
+  for (const [progName, ops] of Object.entries(PROGRAM_OP_BONUS)) {
+    if (ops.includes(opKey)) {
+      const prog = loaded.find(p => p.name.toLowerCase().includes(progName.toLowerCase()));
+      if (prog) result.push({ name: prog.name, rating: prog.rating });
+    }
+  }
+  return result;
+}
+
+function getSleazeProgram(programs: Program[]): Program | undefined {
+  return programs.filter(p => p.loaded).find(p => p.name.toLowerCase().includes('sleaze'));
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function HostDashboard() {
@@ -72,9 +92,15 @@ export default function HostDashboard() {
       ? host.securityValue
       : getEffectiveSubsystemRating(host, op.subsystem as Parameters<typeof getEffectiveSubsystemRating>[1], session.alertLevel);
 
+    const bonuses = getProgramBonuses(opKey, session.loadedPrograms);
+    const bonusDice = bonuses.reduce((s, b) => s + b.rating, 0);
+    const bonusLabel = bonuses.length > 0
+      ? ` (${bonuses.map(b => `${b.name} +${b.rating}`).join(', ')})`
+      : '';
+
     const result = await requestRoll({
-      label: `${op.label} — TN ${tn}`,
-      baseDice: session.character.computerSkill,
+      label: `${op.label}${bonusLabel} — TN ${tn}`,
+      baseDice: session.character.computerSkill + bonusDice,
       targetNumber: tn,
       requiredSuccesses: 1,
       cancelable: true,
@@ -82,13 +108,26 @@ export default function HostDashboard() {
 
     if (!result) return;
 
-    const tally = result.success ? op.tallyOnSuccess : op.tallyOnFailure;
+    // Sleaze mitigation: if success and there's a tally cost, roll Sleaze to reduce it
+    let tally = result.success ? op.tallyOnSuccess : op.tallyOnFailure;
+    let sleazeNote = '';
+    if (result.success && op.tallyOnSuccess > 0) {
+      const sleaze = getSleazeProgram(session.loadedPrograms);
+      if (sleaze) {
+        const sleazeRoll = rollDice(sleaze.rating, host.securityValue, `Sleaze (${sleaze.name} ${sleaze.rating})`);
+        const reduction = sleazeRoll.successes;
+        tally = Math.max(0, tally - reduction);
+        sleazeNote = ` | Sleaze: ${sleazeRoll.successes} successes → tally reduced by ${reduction}`;
+        if (reduction > 0 && tally === 0) sleazeNote += ' (fully mitigated)';
+      }
+    }
+
     if (tally > 0) dispatch({ type: 'ADD_TALLY', payload: tally });
 
     addLog(
       'operation',
       `${op.label}: ${result.success ? 'SUCCESS' : 'FAILURE'}`,
-      `${result.narrative}${tally > 0 ? ` (+${tally} tally)` : ''}`,
+      `${result.narrative}${tally > 0 ? ` (+${tally} tally)` : ''}${sleazeNote}`,
       result.rolls,
     );
   }
@@ -133,6 +172,7 @@ export default function HostDashboard() {
                 onRun={handleOperation}
                 host={host}
                 alertLevel={session.alertLevel}
+                programs={session.loadedPrograms}
               />
             </>
           ) : (
@@ -459,7 +499,7 @@ function HackingPoolPanel({ session, dispatch }: {
   session: import('@/types').RunnerSession;
   dispatch: React.Dispatch<import('@/runner/runnerContext').RunnerAction>;
 }) {
-  const available = session.hackingPoolTotal - session.hackingPoolUsed;
+  const opsAvailable = session.hackingPoolTotal - session.hackingPoolUsed - session.suppressionPool;
 
   return (
     <PanelCard title="HACKING POOL">
@@ -469,10 +509,55 @@ function HackingPoolPanel({ session, dispatch }: {
           className="w-14 h-14 rounded-full border-2 flex flex-col items-center justify-center"
           style={{ borderColor: 'var(--color-primary)' }}
         >
-          <span className="text-xl font-bold" style={{ color: 'var(--color-primary)' }}>{available}</span>
-          <span className="text-[8px] text-[var(--color-muted-foreground)]">/ {session.hackingPoolTotal}</span>
+          <span className="text-xl font-bold" style={{ color: 'var(--color-primary)' }}>{session.hackingPoolTotal}</span>
+          <span className="text-[8px] text-[var(--color-muted-foreground)]">TOTAL</span>
         </div>
       </div>
+
+      {/* Pool breakdown */}
+      <div className="flex justify-between text-[9px] mt-1">
+        <span className="text-[var(--color-muted-foreground)]">OPS avail</span>
+        <span style={{ color: 'var(--color-primary)' }} className="font-bold">{opsAvailable}</span>
+      </div>
+      {session.suppressionPool > 0 && (
+        <div className="flex justify-between text-[9px]">
+          <span className="text-[var(--color-muted-foreground)]">SUPPRESS reserved</span>
+          <span style={{ color: '#f59e0b' }} className="font-bold">{session.suppressionPool}</span>
+        </div>
+      )}
+      {session.hackingPoolUsed > 0 && (
+        <div className="flex justify-between text-[9px]">
+          <span className="text-[var(--color-muted-foreground)]">Used this turn</span>
+          <span style={{ color: 'var(--color-muted-foreground)' }}>{session.hackingPoolUsed}</span>
+        </div>
+      )}
+
+      {/* Suppression Reserve slider */}
+      <div className="mt-2 border-t border-[var(--color-border)] pt-2">
+        <div className="text-[9px] tracking-wider text-[var(--color-muted-foreground)] mb-1">SUPPRESSION RESERVE</div>
+        <input
+          type="range"
+          min={0}
+          max={session.hackingPoolTotal - session.hackingPoolUsed}
+          value={session.suppressionPool}
+          onChange={(e) => dispatch({ type: 'SET_SUPPRESSION_POOL', payload: Number(e.target.value) })}
+          className="w-full accent-[#f59e0b]"
+        />
+        <div className="flex justify-between text-[9px] text-[var(--color-muted-foreground)]">
+          <span>0</span>
+          <span>{session.hackingPoolTotal - session.hackingPoolUsed}</span>
+        </div>
+        {session.suppressionPool > 0 ? (
+          <div className="text-[9px] mt-0.5" style={{ color: '#f59e0b' }}>
+            {session.suppressionPool} dice auto-defend vs IC
+          </div>
+        ) : (
+          <div className="text-[9px] mt-0.5 text-[var(--color-muted-foreground)] italic">
+            No suppression reserve
+          </div>
+        )}
+      </div>
+
       <div className="text-center text-[9px] text-[var(--color-muted-foreground)] mt-1">
         TURN <span className="text-[var(--color-foreground)]">{session.combatTurn}</span>
       </div>
@@ -794,6 +879,7 @@ function ActiveICPanel({ session, dispatch, addLog }: {
         character={session.character}
         session={session}
         hackingPoolAvailable={hackingPoolAvailable}
+        suppressionPool={session.suppressionPool}
         onClose={() => { setCombatTarget(null); setAttackProgram(null); }}
         onResult={handleCombatResult}
       />
@@ -804,11 +890,12 @@ function ActiveICPanel({ session, dispatch, addLog }: {
 
 // ─── Operations Panel ─────────────────────────────────────────────────────────
 
-function OperationsPanel({ opKeys, onRun, host, alertLevel }: {
+function OperationsPanel({ opKeys, onRun, host, alertLevel, programs }: {
   opKeys: string[];
   onRun: (key: string) => void;
   host: import('@/types').Host;
   alertLevel: AlertLevel;
+  programs: Program[];
 }) {
   return (
     <PanelCard title="OPERATIONS">
@@ -820,6 +907,8 @@ function OperationsPanel({ opKeys, onRun, host, alertLevel }: {
           const tn = op.subsystem === 'none'
             ? host.securityValue
             : getEffectiveSubsystemRating(host, op.subsystem as Parameters<typeof getEffectiveSubsystemRating>[1], alertLevel);
+
+          const bonuses = getProgramBonuses(key, programs);
 
           return (
             <button
@@ -837,6 +926,11 @@ function OperationsPanel({ opKeys, onRun, host, alertLevel }: {
                   <span className="text-[#f59e0b]/70"> / OK +{op.tallyOnSuccess}</span>
                 )}
               </div>
+              {bonuses.length > 0 && (
+                <div className="text-[8px] mt-0.5" style={{ color: '#4ade8088' }}>
+                  {bonuses.map(b => `+${b.rating} ${b.name}`).join(', ')}
+                </div>
+              )}
             </button>
           );
         })}
@@ -978,15 +1072,43 @@ function ProgramsPanel({ session }: {
       {loaded.length === 0 ? (
         <div className="text-[9px] text-[var(--color-muted-foreground)]">No programs loaded</div>
       ) : (
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-1">
           {loaded.map((p) => {
             const isAttack = p.name.toLowerCase().includes('attack');
+            const isSleaze = p.name.toLowerCase().includes('sleaze');
+            const isArmor = p.name.toLowerCase().includes('armor');
+
+            // Find which ops this program boosts
+            const boostedOps: string[] = [];
+            for (const [progName, ops] of Object.entries(PROGRAM_OP_BONUS)) {
+              if (p.name.toLowerCase().includes(progName.toLowerCase())) {
+                boostedOps.push(...ops.map(op => OPERATION_DEFINITIONS[op]?.label ?? op));
+              }
+            }
+
             return (
-              <div key={p.name} className="flex justify-between text-[9px]">
-                <span style={{ color: isAttack ? 'var(--color-primary)' : 'var(--color-foreground)' }}>
-                  {p.name}
-                </span>
-                <span className="text-[var(--color-muted-foreground)]">{p.rating}</span>
+              <div key={p.name} className="flex flex-col gap-0.5">
+                <div className="flex justify-between text-[9px]">
+                  <span style={{ color: isAttack ? 'var(--color-primary)' : isSleaze ? '#a855f7' : isArmor ? '#22c55e' : 'var(--color-foreground)' }}>
+                    {p.name}
+                  </span>
+                  <span className="text-[var(--color-muted-foreground)]">{p.rating}</span>
+                </div>
+                {boostedOps.length > 0 && (
+                  <div className="text-[8px] pl-1" style={{ color: '#4ade8066' }}>
+                    +{p.rating}: {boostedOps.slice(0, 3).join(', ')}{boostedOps.length > 3 ? '…' : ''}
+                  </div>
+                )}
+                {isSleaze && (
+                  <div className="text-[8px] pl-1" style={{ color: '#a855f766' }}>
+                    Tally mitigation on success
+                  </div>
+                )}
+                {isArmor && (
+                  <div className="text-[8px] pl-1" style={{ color: '#22c55e66' }}>
+                    Passive: +{p.rating} Bod resistance
+                  </div>
+                )}
               </div>
             );
           })}
