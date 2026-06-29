@@ -1,0 +1,44 @@
+{
+  "name": "Dmitri Volkov",
+  "streetName": "Wreckingball",
+  "race": "Human",
+  "attributes": {
+    "body":         5,
+    "quickness":    4,
+    "strength":     4,
+    "charisma":     2,
+    "willpower":    6,
+    "intelligence": 8,
+    "reaction":     5,
+    "essence":      2.8
+  },
+  "deck": {
+    "name":             "Fuchi Cyber-9 (Modified)",
+    "persona":          9,
+    "bod":              7,
+    "evasion":          8,
+    "sensors":          7,
+    "masking":          6,
+    "hardening":        5,
+    "activeMemoryMp":   400,
+    "storageMemoryMp":  2500,
+    "ioSpeed":          400,
+    "responseIncrease": 4
+  },
+  "programs": [
+    { "name": "Attack",     "rating": 9, "multiplier": 5, "sizeMp": 45, "loaded": true,  "damageCode": "S" },
+    { "name": "Armor",      "rating": 6, "multiplier": 5, "sizeMp": 30, "loaded": true  },
+    { "name": "Cloak",      "rating": 5, "multiplier": 5, "sizeMp": 25, "loaded": true  },
+    { "name": "Analyze",    "rating": 6, "multiplier": 4, "sizeMp": 24, "loaded": true  },
+    { "name": "Browse",     "rating": 5, "multiplier": 3, "sizeMp": 15, "loaded": true  },
+    { "name": "Deception",  "rating": 5, "multiplier": 5, "sizeMp": 25, "loaded": false },
+    { "name": "Sleaze",     "rating": 5, "multiplier": 5, "sizeMp": 25, "loaded": false },
+    { "name": "Decrypt",    "rating": 6, "multiplier": 5, "sizeMp": 30, "loaded": false },
+    { "name": "Spoof",      "rating": 5, "multiplier": 5, "sizeMp": 25, "loaded": false },
+    { "name": "Read/Write", "rating": 6, "multiplier": 2, "sizeMp": 12, "loaded": false }
+  ],
+  "hackingPool":      9,
+  "computerSkill":    8,
+  "electronicsSkill": 5,
+  "isVerified":       false
+}

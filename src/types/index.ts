@@ -251,6 +251,7 @@ export interface Program {
   rating: number;
   loaded: boolean;
   sizeMp: number;
+  damageCode?: 'L' | 'M' | 'S' | 'D'; // Attack program only
 }
 
 export interface CharacterSheet {
@@ -370,6 +371,8 @@ export interface RunnerSession {
   // Per host: file and slave IDs the decker has located (hidden until searched)
   locatedFiles:  Record<string, string[]>;
   locatedSlaves: Record<string, string[]>;
+  // IC currently evaded by the decker: icId → turns remaining
+  evadingIC: Record<string, number>;
   // Is a host shutdown sequence in progress?
   shutdownCountdown?: number;
   // IC that was suppressed (crashed without tally cost)

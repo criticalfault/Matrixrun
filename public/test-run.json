@@ -1,0 +1,256 @@
+{
+  "id": "test-run-aztechnology-payroll-001",
+  "name": "Aztechnology Payroll Server",
+  "description": "Mid-tier corporate payroll host. Orange security. Good for testing sheaf triggers, IC combat, and file operations.",
+  "version": "1.0",
+  "gmNotes": "Test run for dev/QA. Designed to exercise: Probe/Killer/Blaster/Crippler IC, full sheaf sequence, file operations, slaves, and dump shock paths.",
+  "hostGMNotes": {
+    "host-azt-payroll-main": "Main payroll host. Orange security. Sheaf hits passive at 3, active at 8, shutdown at 15. IC load is intentionally varied — Probe first to detect the decker, then proactive IC if alert escalates.",
+    "host-azt-backup-san": "Backup SAN node linking to main payroll. One-way only — decker can't come back through this route."
+  },
+  "createdAt": 1750000000000,
+  "entryHostIds": ["host-azt-payroll-main"],
+  "hosts": [
+    {
+      "id": "host-azt-payroll-main",
+      "name": "AZT-PAY-03 // Payroll Processing",
+      "description": "A sterile white server room rendered in clean corporate geometry. Aztechnology corporate logos float as watermarks across every surface. Data streams flow in ordered columns.",
+      "metaphor": "Corporate server room — white tile floors, glowing blue data conduits, Aztechnology pyramid motifs",
+      "securityCode": "Orange",
+      "securityValue": 6,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 6,
+        "files": 7,
+        "slave": 5,
+        "index": 6,
+        "control": 5
+      },
+      "subsystemVariants": [
+        {
+          "id": "ssv-hr-files",
+          "subsystem": "files",
+          "modifier": 2,
+          "description": "HR personnel records partition (+2)"
+        },
+        {
+          "id": "ssv-public-index",
+          "subsystem": "index",
+          "modifier": -2,
+          "description": "Public directory listing (-2)"
+        }
+      ],
+      "securitySheaf": [
+        {
+          "id": "step-passive",
+          "triggerValue": 3,
+          "alertChange": "passive",
+          "gmNotes": "Passive alert — Probe IC activates. Decker has been noticed but not confirmed.",
+          "ic": [
+            {
+              "id": "ic-probe-01",
+              "type": "Probe",
+              "category": "ReactiveWhite",
+              "rating": 6,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 6
+            }
+          ]
+        },
+        {
+          "id": "step-scout",
+          "triggerValue": 6,
+          "gmNotes": "Additional Scout IC joins — security is building a trace.",
+          "ic": [
+            {
+              "id": "ic-scout-01",
+              "type": "Scout",
+              "category": "ProactiveWhite",
+              "rating": 5,
+              "options": ["Expert"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 5
+            }
+          ]
+        },
+        {
+          "id": "step-active",
+          "triggerValue": 8,
+          "alertChange": "active",
+          "gmNotes": "Active alert — Killer IC deployed. Security has confirmed intrusion. Decker is now a target.",
+          "ic": [
+            {
+              "id": "ic-killer-01",
+              "type": "Killer",
+              "category": "ProactiveWhite",
+              "rating": 7,
+              "options": ["Shield"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 7
+            }
+          ]
+        },
+        {
+          "id": "step-blaster",
+          "triggerValue": 11,
+          "gmNotes": "Blaster IC joins — security escalating to lethal measures.",
+          "ic": [
+            {
+              "id": "ic-blaster-01",
+              "type": "Blaster",
+              "category": "ProactiveGray",
+              "rating": 6,
+              "options": ["Cascading"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 6
+            }
+          ]
+        },
+        {
+          "id": "step-crippler",
+          "triggerValue": 13,
+          "gmNotes": "Crippler IC — targets Evasion attribute. Combined with Blaster this is dangerous.",
+          "ic": [
+            {
+              "id": "ic-crippler-01",
+              "type": "Crippler",
+              "category": "ProactiveWhite",
+              "rating": 6,
+              "options": ["Armor"],
+              "targetAttribute": "Evasion",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 6
+            }
+          ]
+        },
+        {
+          "id": "step-shutdown",
+          "triggerValue": 15,
+          "alertChange": "shutdown",
+          "gmNotes": "Shutdown initiated. No further sheaf events trigger. All active IC remain — system is purging.",
+          "ic": []
+        }
+      ],
+      "shutdownThreshold": 15,
+      "files": [
+        {
+          "id": "file-payroll-q2",
+          "name": "Q2_PAYROLL_DISBURSEMENT.dat",
+          "description": "Quarterly payroll disbursement records. 847 employee entries. Salaries, bonuses, department codes. Useful for identifying key personnel or as leverage.",
+          "sizeMp": 42,
+          "defense": "encrypted",
+          "isPaydata": true,
+          "paydataValue": 8000,
+          "gmNotes": "Classic payroll data. Could be used to ID corp employees or sold to competitors."
+        },
+        {
+          "id": "file-hr-personnel",
+          "name": "HR_PERSONNEL_Q2.arc",
+          "description": "Full HR dossiers — home addresses, SIN numbers, biometric data, medical flags for 847 employees. Highly sensitive.",
+          "sizeMp": 118,
+          "defense": "encryptedAndBomb",
+          "bombRating": 5,
+          "isPaydata": true,
+          "paydataValue": 15000,
+          "gmNotes": "Data bomb rating 5 — decker needs to defuse or decrypt carefully. This is the crown jewel."
+        },
+        {
+          "id": "file-security-rota",
+          "name": "PHYS_SECURITY_ROTA.txt",
+          "description": "Physical security rotation schedule for the Aztechnology Seattle campus. Guard posts, shift times, patrol routes for the next 30 days.",
+          "sizeMp": 8,
+          "defense": "none",
+          "isPaydata": false,
+          "gmNotes": "Good for the Street Sam or Face — not matrix paydata but useful for the crew."
+        },
+        {
+          "id": "file-exec-comms",
+          "name": "EXEC_COMMS_ARCHIVE.enc",
+          "description": "Encrypted executive communications archive. Subject lines visible: merger talks, project QUETZAL references, legal exposure memos.",
+          "sizeMp": 256,
+          "defense": "encrypted",
+          "isPaydata": true,
+          "paydataValue": 22000,
+          "gmNotes": "Project QUETZAL is a hook for future runs — don't reveal full contents unless player decrypts."
+        },
+        {
+          "id": "file-audit-log",
+          "name": "SYSAUDIT_LOG_CURRENT.log",
+          "description": "Current system audit log. Contains decker's own intrusion trail — editing this would reduce Security Tally.",
+          "sizeMp": 14,
+          "defense": "none",
+          "isPaydata": false,
+          "gmNotes": "If edited, reduce security tally by 1d6 as a narrative reward — decker cleaned their tracks."
+        }
+      ],
+      "slaves": [
+        {
+          "id": "slave-cam-lobby",
+          "name": "Lobby Security Cameras (x12)",
+          "type": "SecurityCamera",
+          "description": "Twelve-camera array covering all lobby access points. Live feeds routed to on-site security station.",
+          "controlEffect": "Decker gains live view of all lobby cameras. Can loop footage or disable specific angles. Physical security blind for duration.",
+          "isEncrypted": false,
+          "hasBomb": false,
+          "gmNotes": "Disabling gives the crew a 10-minute window before a guard physically checks the cameras."
+        },
+        {
+          "id": "slave-door-server",
+          "name": "Server Room Door Lock",
+          "type": "DoorLock",
+          "description": "Mag-lock on the primary server room. Requires keycard + biometric.",
+          "controlEffect": "Decker can unlock/lock remotely. Can hold open, hold closed, or trigger a false alarm to draw security away.",
+          "isEncrypted": true,
+          "encryptionRating": 4,
+          "hasBomb": false,
+          "gmNotes": "Opening this gives the Rigger or Street Sam direct physical access to the server hardware."
+        },
+        {
+          "id": "slave-alarm-main",
+          "name": "Building Alarm System",
+          "type": "Alarm",
+          "description": "Central alarm routing. Connects to Lone Star response contract — 4-minute response time.",
+          "controlEffect": "Decker can suppress alarms, trigger false alarms elsewhere in the building, or lock out physical override for 1d6 minutes.",
+          "isEncrypted": true,
+          "encryptionRating": 5,
+          "hasBomb": true,
+          "bombRating": 4,
+          "gmNotes": "Data bomb on the alarm slave — designed to punish casual intrusion. Triggers Lone Star dispatch on detonation."
+        }
+      ],
+      "paydata": [],
+      "nextHostIds": ["host-azt-backup-san"],
+      "specialFeatures": {}
+    },
+    {
+      "id": "host-azt-backup-san",
+      "name": "AZT-PAY-03 // Backup SAN",
+      "description": "A narrow transit corridor — bare conduit, no ornamentation. One-way data shunt linking the payroll host to the broader Aztechnology regional network.",
+      "metaphor": "Bare maintenance corridor — exposed conduit, flickering overhead lights",
+      "securityCode": "Orange",
+      "securityValue": 6,
+      "nodeType": "one-way-san",
+      "oneWaySANAccessBonus": 2,
+      "subsystems": {
+        "access": 5,
+        "files": 4,
+        "slave": 3,
+        "index": 4,
+        "control": 3
+      },
+      "subsystemVariants": [],
+      "securitySheaf": [],
+      "files": [],
+      "slaves": [],
+      "paydata": [],
+      "nextHostIds": [],
+      "specialFeatures": {}
+    }
+  ]
+}

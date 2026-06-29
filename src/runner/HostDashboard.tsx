@@ -127,6 +127,19 @@ export default function HostDashboard() {
   // Noticing IC queue — one modal per newly-triggered IC
   const [noticingICQueue, setNoticingICQueue] = useState<ICInstance[]>([]);
 
+  // IC attack queue — proactive IC that attack when decker uses action elsewhere
+  const [icAttackQueue, setIcAttackQueue] = useState<ICInstance[]>([]);
+
+  // Snapshot active proactive IC (before dispatching tally) and queue their attacks
+  function queueActiveICAttacks() {
+    const attackers = session.activeIC.filter(ic =>
+      ic.status === 'active' &&
+      (ic.category === 'ProactiveWhite' || ic.category === 'ProactiveGray' || ic.category === 'Black') &&
+      (session.evadingIC?.[ic.id] ?? 0) === 0,
+    );
+    if (attackers.length > 0) setIcAttackQueue(prev => [...prev, ...attackers]);
+  }
+
   function handleLocateSearchResult(result: LocateSearchResult) {
     if (!host || !locateSearchMode) return;
     if (result.locatedIds.length > 0) {
@@ -145,6 +158,10 @@ export default function HostDashboard() {
   function applyTallyAndCheckSheaf(tallyGained: number) {
     if (!host) return;
     if (tallyGained <= 0) return;
+    if (session.alertLevel === 'shutdown') {
+      dispatch({ type: 'ADD_TALLY', payload: tallyGained });
+      return;
+    }
 
     const oldTally = session.securityTally;
     const newTally = oldTally + tallyGained;
@@ -243,6 +260,9 @@ export default function HostDashboard() {
 
     // Host Security Test (auto-roll) — SV dice vs Detection Factor
     const { hostSuccesses, secRoll } = rollHostSecurityTest(session, host.securityValue);
+
+    // Snapshot active proactive IC before tally dispatch (state is still pre-dispatch here)
+    queueActiveICAttacks();
 
     // Apply tally + check sheaf (fires IC and alerts automatically)
     applyTallyAndCheckSheaf(hostSuccesses);
@@ -361,6 +381,7 @@ export default function HostDashboard() {
                 host={host}
                 onOpenLocateSearch={setLocateSearchMode}
                 onTallyGained={applyTallyAndCheckSheaf}
+                onOperationComplete={queueActiveICAttacks}
               />
               <ActiveICPanel
                 session={session}
@@ -1166,6 +1187,20 @@ function ActiveICPanel({ session, dispatch, addLog, onDumpShock, onSimsenseOverl
     if (result.bodyStun > 0) dispatch({ type: 'TAKE_STUN', payload: result.bodyStun });
     if (result.bodyPhys > 0) dispatch({ type: 'TAKE_PHYS', payload: result.bodyPhys });
 
+    // Crippler / Ripper — damage to a specific persona attribute
+    if (result.attributeDamage) {
+      const attr = result.attributeDamage.attribute.toLowerCase() as 'bod' | 'evasion' | 'masking' | 'sensors';
+      dispatch({ type: 'DAMAGE_PERSONA', payload: { [attr]: result.attributeDamage.boxes } });
+      if (result.causedDump) {
+        const currentHost = session.runPacket?.hosts?.find(h => h.id === session.currentHostId);
+        if (currentHost) onDumpShock(currentHost);
+      }
+    }
+
+    if (result.evadeTurns > 0) {
+      dispatch({ type: 'EVADE_IC', payload: { icId: combatTarget.id, turns: result.evadeTurns } });
+    }
+
     addLog('combat', `Cybercombat vs ${combatTarget.type}-${combatTarget.rating}`, result.log);
   }
 
@@ -1201,6 +1236,12 @@ function ActiveICPanel({ session, dispatch, addLog, onDumpShock, onSimsenseOverl
                       </span>
                     )}
                   </div>
+                  {(session.evadingIC?.[ic.id] ?? 0) > 0 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 border"
+                      style={{ borderColor: '#a855f7', color: '#a855f7', backgroundColor: '#a855f710' }}>
+                      EVADED {session.evadingIC[ic.id]}T
+                    </span>
+                  )}
                 </div>
                 <div className="flex gap-1">
                   <button
@@ -1329,7 +1370,7 @@ function ActiveICPanel({ session, dispatch, addLog, onDumpShock, onSimsenseOverl
       </div>
     )}
 
-    {/* Combat Modal */}
+    {/* Combat Modal — decker-initiated */}
     {combatTarget && attackProgram && (
       <CombatModal
         ic={combatTarget}
@@ -1340,6 +1381,24 @@ function ActiveICPanel({ session, dispatch, addLog, onDumpShock, onSimsenseOverl
         suppressionPool={session.suppressionPool}
         onClose={() => { setCombatTarget(null); setAttackProgram(null); }}
         onResult={handleCombatResult}
+      />
+    )}
+
+    {/* IC Attack Queue — proactive IC attack when decker uses action elsewhere */}
+    {!combatTarget && icAttackQueue.length > 0 && (
+      <CombatModal
+        ic={icAttackQueue[0]}
+        attackProgram={null}
+        character={session.character}
+        session={session}
+        hackingPoolAvailable={hackingPoolAvailable}
+        suppressionPool={session.suppressionPool}
+        icInitiated={true}
+        onClose={() => setIcAttackQueue(prev => prev.slice(1))}
+        onResult={(result) => {
+          handleCombatResult({ ...result, icDamage: 0, icCrashed: false });
+          setIcAttackQueue(prev => prev.slice(1));
+        }}
       />
     )}
     </>
@@ -1663,7 +1722,7 @@ function ProgramsPanel({ session }: {
 
 // ─── Files Panel ─────────────────────────────────────────────────────────────
 
-type FileState = 'located' | 'decrypted' | 'read' | 'downloaded';
+type FileState = 'located' | 'decrypted' | 'read' | 'downloaded' | 'edited';
 type BombPendingAction = { fileId: string; action: 'read' | 'download' } | null;
 
 function DefenseBadge({ defense }: { defense: HostFile['defense'] }) {
@@ -1693,10 +1752,11 @@ function DefenseBadge({ defense }: { defense: HostFile['defense'] }) {
   return <div className="flex gap-1 flex-wrap">{badges}</div>;
 }
 
-function FilesPanel({ host, onOpenLocateSearch, onTallyGained }: {
+function FilesPanel({ host, onOpenLocateSearch, onTallyGained, onOperationComplete }: {
   host: import('@/types').Host;
   onOpenLocateSearch: (mode: 'file' | 'slave') => void;
   onTallyGained: (amount: number) => void;
+  onOperationComplete: () => void;
 }) {
   const { session, dispatch, addLog } = useRunner();
   const { pendingRoll: filesPendingRoll, requestRoll: filesRequestRoll } = usePoolRoll();
@@ -1735,6 +1795,7 @@ function FilesPanel({ host, onOpenLocateSearch, onTallyGained }: {
     if (!result) return false;
 
     const { hostSuccesses, secRoll } = rollHostSecurityTest(session, host.securityValue);
+    onOperationComplete(); // snapshot active proactive IC before tally dispatch
     if (hostSuccesses > 0) onTallyGained(hostSuccesses);
 
     const netSuccesses = result.netSuccesses - hostSuccesses;
@@ -1871,6 +1932,7 @@ function FilesPanel({ host, onOpenLocateSearch, onTallyGained }: {
               else if (st === 'decrypted') { statusLabel = 'decrypted'; statusColor = '#22c55e'; }
               else if (st === 'read') { statusLabel = 'read'; statusColor = '#22c55e'; }
               else if (st === 'downloaded') { statusLabel = 'downloaded'; statusColor = '#22c55e'; }
+              else if (st === 'edited') { statusLabel = 'edited'; statusColor = '#f59e0b'; }
 
               return (
                 <div
@@ -1930,6 +1992,20 @@ function FilesPanel({ host, onOpenLocateSearch, onTallyGained }: {
                         className="text-[11px] border border-[var(--color-border)] text-[var(--color-muted-foreground)] px-2 py-0.5 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
                       >
                         Read
+                      </button>
+                    )}
+                    {canAccess && (
+                      <button
+                        onClick={async () => {
+                          const ok = await runFileOp('EditFile', `Edit File: ${file.name}`);
+                          if (ok) {
+                            setFileStates(s => ({ ...s, [file.id]: 'edited' }));
+                            addLog('operation', `File edited: ${file.name}`, `Contents modified by decker. File marked as altered.`);
+                          }
+                        }}
+                        className="text-[11px] border border-[var(--color-border)] text-[var(--color-muted-foreground)] px-2 py-0.5 hover:border-[#f59e0b] hover:text-[#f59e0b] transition-colors"
+                      >
+                        Edit
                       </button>
                     )}
                     {canAccess && st !== 'downloaded' && (

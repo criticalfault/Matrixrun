@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { BuilderProvider, useBuilder } from '@/builder/builderContext';
 import TopologyCanvas from '@/builder/topology/TopologyCanvas';
 import HostEditor from '@/builder/editor/HostEditor';
@@ -6,7 +6,8 @@ import RTGSelector from '@/builder/RTGSelector';
 import ExportDialog from '@/builder/ExportDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { saveBuilderDraft, loadBuilderDraft, listBuilderDrafts, deleteBuilderDraft, createEmptyRunPacket } from '@/engine/runPacketCodec';
+import { saveBuilderDraft, loadBuilderDraft, listBuilderDrafts, deleteBuilderDraft, createEmptyRunPacket, importRunPacket } from '@/engine/runPacketCodec';
+import type { RunPacketWithGMData } from '@/types';
 import { cn } from '@/lib/utils';
 
 // ─── Left sidebar: run packet list ───────────────────────────────────────────
@@ -15,6 +16,11 @@ function DraftSidebar({ onClose }: { onClose: () => void }) {
   const { state, dispatch } = useBuilder();
   const drafts = listBuilderDrafts();
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  // .mxrun import state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
 
   function loadDraft(id: string) {
     const loaded = loadBuilderDraft(id);
@@ -34,6 +40,22 @@ function DraftSidebar({ onClose }: { onClose: () => void }) {
     onClose();
   }
 
+  function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError('');
+    setImportLoading(true);
+    e.target.value = '';
+    importRunPacket(file).then(packet => {
+      const withGM: RunPacketWithGMData = { ...packet, gmNotes: '', hostGMNotes: {} };
+      saveBuilderDraft(withGM);
+      dispatch({ type: 'SET_RUN_PACKET', payload: withGM });
+      onClose();
+    }).catch(err => {
+      setImportError(err instanceof Error ? err.message : 'Import failed.');
+    }).finally(() => setImportLoading(false));
+  }
+
   return (
     <div className="flex flex-col h-full font-mono text-[11px]">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border)]">
@@ -41,9 +63,75 @@ function DraftSidebar({ onClose }: { onClose: () => void }) {
         <button onClick={onClose} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]">✕</button>
       </div>
 
-      <div className="p-2">
+      <div className="p-2 flex flex-col gap-1.5">
         <Button size="sm" className="w-full" onClick={newRun}>+ New Run</Button>
+        <Button size="sm" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
+          Load .mxrun
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".mxrun"
+          className="hidden"
+          onChange={handleFileChosen}
+        />
+        <Button size="sm" variant="outline" className="w-full text-[10px] opacity-60 hover:opacity-100"
+          onClick={() => {
+            setImportError('');
+            setImportLoading(true);
+            fetch('/test-run.json')
+              .then(r => r.json())
+              .then((json: RunPacketWithGMData) => {
+                saveBuilderDraft(json);
+                dispatch({ type: 'SET_RUN_PACKET', payload: json });
+                onClose();
+              })
+              .catch(() => setImportError('Could not load test-run.json'))
+              .finally(() => setImportLoading(false));
+          }}>
+          [DEV] Load Test Run
+        </Button>
+        <Button size="sm" variant="outline" className="w-full text-[10px] opacity-60 hover:opacity-100"
+          onClick={() => {
+            setImportError('');
+            setImportLoading(true);
+            fetch('/sotf-run.json')
+              .then(r => r.json())
+              .then((json: RunPacketWithGMData) => {
+                saveBuilderDraft(json);
+                dispatch({ type: 'SET_RUN_PACKET', payload: json });
+                onClose();
+              })
+              .catch(() => setImportError('Could not load sotf-run.json'))
+              .finally(() => setImportLoading(false));
+          }}>
+          [DEV] Load SotF Run
+        </Button>
+        <Button size="sm" variant="outline" className="w-full text-[10px] opacity-60 hover:opacity-100"
+          onClick={() => {
+            setImportError('');
+            setImportLoading(true);
+            fetch('/corp-punishment-run.json')
+              .then(r => r.json())
+              .then((json: RunPacketWithGMData) => {
+                saveBuilderDraft(json);
+                dispatch({ type: 'SET_RUN_PACKET', payload: json });
+                onClose();
+              })
+              .catch(() => setImportError('Could not load corp-punishment-run.json'))
+              .finally(() => setImportLoading(false));
+          }}>
+          [DEV] Load Corp Punishment
+        </Button>
       </div>
+
+      {/* .mxrun load feedback */}
+      {importLoading && (
+        <div className="mx-2 mb-1 text-[10px] text-[var(--color-muted-foreground)] italic">Loading…</div>
+      )}
+      {importError && (
+        <div className="mx-2 mb-1 text-[10px]" style={{ color: '#ef4444' }}>{importError}</div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         {drafts.length === 0 ? (

@@ -3,21 +3,23 @@ import type { RunPacket, RunPacketWithGMData } from '@/types';
 const FILE_EXTENSION = '.mxrun';
 const VERSION = '1.0';
 
-// ─── Encryption (Web Crypto API — AES-GCM) ────────────────────────────────────
+// ─── Encryption (Web Crypto API — AES-GCM, fixed app key) ────────────────────
 
-async function deriveKey(passphrase: string): Promise<CryptoKey> {
+// Not a user secret — just prevents the file from being plain-readable JSON.
+const APP_KEY_MATERIAL = 'MatrixRun-SR3-AppKey-2025-Internal';
+const APP_KEY_SALT     = 'MatrixRun-SR3-Salt-v1';
+
+async function getAppKey(): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    enc.encode(passphrase),
+    enc.encode(APP_KEY_MATERIAL),
     'PBKDF2',
     false,
     ['deriveKey'],
   );
-  // Fixed salt — the run packet id is used as additional entropy below
-  const salt = enc.encode('MatrixRun-SR3-Salt');
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: enc.encode(APP_KEY_SALT), iterations: 100_000, hash: 'SHA-256' },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -25,32 +27,23 @@ async function deriveKey(passphrase: string): Promise<CryptoKey> {
   );
 }
 
-async function encryptData(data: string, passphrase: string): Promise<string> {
-  const key = await deriveKey(passphrase);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+async function encryptData(data: string): Promise<string> {
+  const key = await getAppKey();
+  const iv  = crypto.getRandomValues(new Uint8Array(12));
   const enc = new TextEncoder();
-  const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    enc.encode(data),
-  );
-  // Combine iv + ciphertext, encode as base64
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(data));
   const combined = new Uint8Array(iv.byteLength + encrypted.byteLength);
   combined.set(iv, 0);
   combined.set(new Uint8Array(encrypted), iv.byteLength);
   return btoa(String.fromCharCode(...combined));
 }
 
-async function decryptData(encoded: string, passphrase: string): Promise<string> {
-  const key = await deriveKey(passphrase);
+async function decryptData(encoded: string): Promise<string> {
+  const key      = await getAppKey();
   const combined = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
-  const iv = combined.slice(0, 12);
+  const iv         = combined.slice(0, 12);
   const ciphertext = combined.slice(12);
-  const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    ciphertext,
-  );
+  const decrypted  = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
   return new TextDecoder().decode(decrypted);
 }
 
@@ -63,7 +56,6 @@ async function decryptData(encoded: string, passphrase: string): Promise<string>
  */
 export async function exportRunPacket(
   data: RunPacketWithGMData,
-  passphrase: string,
 ): Promise<Blob> {
   // Strip GM-only data
   const exportData: RunPacket = {
@@ -85,7 +77,7 @@ export async function exportRunPacket(
   };
 
   const json = JSON.stringify(exportData);
-  const encrypted = await encryptData(json, passphrase);
+  const encrypted = await encryptData(json);
 
   const payload = JSON.stringify({
     v: VERSION,
@@ -100,9 +92,8 @@ export async function exportRunPacket(
  */
 export async function downloadRunPacket(
   data: RunPacketWithGMData,
-  passphrase: string,
 ): Promise<void> {
-  const blob = await exportRunPacket(data, passphrase);
+  const blob = await exportRunPacket(data);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -117,7 +108,7 @@ export async function downloadRunPacket(
  * Load and decrypt a .mxrun file.
  * Throws a user-facing error message if the passphrase is wrong or the file is corrupt.
  */
-export async function importRunPacket(file: File, passphrase: string): Promise<RunPacket> {
+export async function importRunPacket(file: File): Promise<RunPacket> {
   const text = await file.text();
 
   let wrapper: { v: string; e: string };
@@ -133,9 +124,9 @@ export async function importRunPacket(file: File, passphrase: string): Promise<R
 
   let json: string;
   try {
-    json = await decryptData(wrapper.e, passphrase);
+    json = await decryptData(wrapper.e);
   } catch {
-    throw new Error('Incorrect access code. Check the passphrase and try again.');
+    throw new Error('Could not decrypt run packet — file may be corrupt or from an older version.');
   }
 
   let packet: RunPacket;

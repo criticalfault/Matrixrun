@@ -60,6 +60,8 @@ export function checkSheafTriggers(
     const icList = (step.ic ?? []).map(ic => ic.type).join(', ') || 'no IC';
     const alertNote = step.alertChange ? ` | ALERT → ${step.alertChange.toUpperCase()}` : '';
     result.stepLogs.push(`Tally ${step.triggerValue}: ${icList}${alertNote}`);
+    // Shutdown ends the sheaf — no further steps fire
+    if (step.alertChange === 'shutdown') break;
   }
 
   return result;

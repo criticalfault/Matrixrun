@@ -1,0 +1,1132 @@
+{
+  "id": "sotf-survival-of-the-fittest-001",
+  "name": "Survival of the Fittest",
+  "description": "Three Matrix hosts from the Shadowrun 3E adventure 'Survival of the Fittest'. Each host represents a distinct scenario — run them independently or as part of the full campaign.",
+  "version": "1.0",
+  "gmNotes": "Source: Survival of the Fittest (WizKids/FanPro, 2002). Three hosts across three adventures: Shasta Lodge Mainframe (The Lodge, p.30), Children of the Dragon Temple (Meet the New Boss, p.40), and Wuxing Skytower (Scaling the Dragon's Tower, p.76). The Wuxing host step numbers and exact rating were unrecoverable from the OCR scan — step values and UV rating are GM best-estimates based on IC escalation and context.",
+  "hostGMNotes": {
+    "host-sotf-shasta-lodge": "Adventure: The Lodge. Hestaby's dragon lair at Mt. Shasta. Decker goal: reach the Kallisti file (500 Mp, offline storage). The offline system has the SAME sheaf but shuts down at tally 20. Connecting the offline unit to the mainframe requires Computer (4) test (~1 minute). Access to the mainframe allows Control Slave (security cameras + maglocks). Shutdown at tally 43.",
+    "host-sotf-shasta-offline": "Adventure: The Lodge. The isolated data storage where the Kallisti file is kept. Can only be accessed on-site OR if connected to the main Lodge Mainframe (Computer (4) test, ~1 minute). Same sheaf as the mainframe but shuts down at step 20 instead of 43. Contains Scramble IC-8 protecting the Kallisti file.",
+    "host-sotf-children-dragon": "Adventure: Meet the New Boss (Denver, UCAS sector). Martin Goldwing's cult — Children of the Dragon, a Ghostwalker front. Morningstar's personal files and telecomm records (150 Mp) are the target — protected by Rating 5 Data Bomb. Files implicate Morningstar in working for Lofwyr, though a Computer (6) test reveals they were tampered with. Very long sheaf — this is a hardened system.",
+    "host-sotf-wuxing-skytower": "Adventure: Scaling the Dragon's Tower (Hong Kong). Wuxing megacorp HQ. Decker goal: override elevator passcode OR suppress external camera alarms to let the team enter the penthouse. Control Slave = elevator, Edit Slave = suppress cameras/alarms. IMPORTANT: Step numbers approximate — source OCR was unrecoverable for this sheaf. UV rating estimated from IC power level (Killer-12, Crippler-10). Adjust to taste."
+  },
+  "createdAt": 1750000000000,
+  "entryHostIds": [
+    "host-sotf-shasta-lodge",
+    "host-sotf-children-dragon",
+    "host-sotf-wuxing-skytower"
+  ],
+  "hosts": [
+
+    {
+      "id": "host-sotf-shasta-lodge",
+      "name": "Shasta Lodge Mainframe",
+      "description": "A vast cavern of deep green, mist, and ancient redwood rendered in digital form. Hestaby's sigil — a serpentine dragon coiled around a mountain peak — rotates slowly at the center. Security icons manifest as hunting eagles.",
+      "metaphor": "Deep forest cavern — massive redwood trunks, drifting mist, Hestaby's dragon sigil rotating above a central plaza",
+      "securityCode": "Red",
+      "securityValue": 9,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 13,
+        "files": 11,
+        "slave": 13,
+        "control": 13,
+        "index": 13
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 43,
+      "securitySheaf": [
+        {
+          "id": "sotf-sl-step-02",
+          "triggerValue": 2,
+          "gmNotes": "First response — Crippler (jammer) activates, targeting Sensors.",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-crippler-jammer-10",
+              "type": "Crippler",
+              "category": "ProactiveWhite",
+              "rating": 10,
+              "options": [],
+              "targetAttribute": "Sensors",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-04",
+          "triggerValue": 4,
+          "gmNotes": "Tar Pit (Armor option) activates.",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-tarpit-8",
+              "type": "TarPit",
+              "category": "ReactiveGray",
+              "rating": 8,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-07",
+          "triggerValue": 7,
+          "gmNotes": "Crippler (marker) with Expert option — targets Masking.",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-crippler-marker-8",
+              "type": "Crippler",
+              "category": "ProactiveWhite",
+              "rating": 8,
+              "options": ["Expert"],
+              "targetAttribute": "Masking",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-09",
+          "triggerValue": 9,
+          "alertChange": "passive",
+          "gmNotes": "Passive Alert. Security has confirmed an intrusion.",
+          "ic": []
+        },
+        {
+          "id": "sotf-sl-step-12",
+          "triggerValue": 12,
+          "gmNotes": "Three IC deploy simultaneously: Probe-10 (Trap), Sparky-10 (Trap), and Lethal Black-8. The Traps release additional IC if the Probe or Sparky is crashed.",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-probe-10",
+              "type": "Probe",
+              "category": "ReactiveWhite",
+              "rating": 10,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            },
+            {
+              "id": "sotf-sl-ic-sparky-10",
+              "type": "Sparky",
+              "category": "ProactiveGray",
+              "rating": 10,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            },
+            {
+              "id": "sotf-sl-ic-lethal-black-8a",
+              "type": "Lethal",
+              "category": "Black",
+              "rating": 8,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-16",
+          "triggerValue": 16,
+          "gmNotes": "Construct-11 (Trap) containing Blaster-11. The Construct releases the Blaster when encountered. If Construct is crashed, trap fires.",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-construct-11",
+              "type": "Construct",
+              "category": "ProactiveWhite",
+              "rating": 11,
+              "options": ["Trap"],
+              "isConstruct": true,
+              "constructPayload": [
+                {
+                  "id": "sotf-sl-ic-blaster-11-inner",
+                  "type": "Blaster",
+                  "category": "ProactiveGray",
+                  "rating": 11,
+                  "options": [],
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 11
+                }
+              ],
+              "status": "dormant",
+              "currentRating": 11
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-20",
+          "triggerValue": 20,
+          "gmNotes": "Two Killer-10 IC — one with Trap. NOTE: This is also the shutdown point for the Offline Data Storage System.",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-killer-10a",
+              "type": "Killer",
+              "category": "ProactiveWhite",
+              "rating": 10,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            },
+            {
+              "id": "sotf-sl-ic-killer-10b",
+              "type": "Killer",
+              "category": "ProactiveWhite",
+              "rating": 10,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-24",
+          "triggerValue": 24,
+          "alertChange": "active",
+          "gmNotes": "Active Alert. Hestaby's shamans are now actively hunting the decker.",
+          "ic": []
+        },
+        {
+          "id": "sotf-sl-step-27",
+          "triggerValue": 27,
+          "gmNotes": "Crippler (acid) with Shield option — targets Bod.",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-crippler-acid-8",
+              "type": "Crippler",
+              "category": "ProactiveWhite",
+              "rating": 8,
+              "options": ["Shield"],
+              "targetAttribute": "Bod",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-31",
+          "triggerValue": 31,
+          "gmNotes": "Lethal Black IC-11. Heavy.",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-lethal-black-11",
+              "type": "Lethal",
+              "category": "Black",
+              "rating": 11,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 11
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-34",
+          "triggerValue": 34,
+          "gmNotes": "Killer-10 (Shift) plus Lethal Black-8 (Trap).",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-killer-10c",
+              "type": "Killer",
+              "category": "ProactiveWhite",
+              "rating": 10,
+              "options": ["Shift"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            },
+            {
+              "id": "sotf-sl-ic-lethal-black-8b",
+              "type": "Lethal",
+              "category": "Black",
+              "rating": 8,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-37",
+          "triggerValue": 37,
+          "gmNotes": "Non-Lethal Black IC-8.",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-nonlethal-8",
+              "type": "NonLethal",
+              "category": "Black",
+              "rating": 8,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-39",
+          "triggerValue": 39,
+          "gmNotes": "Psychotropic Black IC-8 (positive conditioning subtype — GM narrates behavioral modification).",
+          "ic": [
+            {
+              "id": "sotf-sl-ic-psychotropic-8",
+              "type": "Psychotropic",
+              "category": "Black",
+              "rating": 8,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-sl-step-43",
+          "triggerValue": 43,
+          "alertChange": "shutdown",
+          "gmNotes": "System shutdown. No further sheaf events.",
+          "ic": []
+        }
+      ],
+      "files": [
+        {
+          "id": "sotf-sl-file-kallisti",
+          "name": "KALLISTI.arc",
+          "description": "500 Mp encrypted archive. Contents appear to be densely packed nonsense text — actually worthless data. Hestaby planted it as bait. A Computer (6) test reveals signs of tampering.",
+          "sizeMp": 500,
+          "defense": "none",
+          "isPaydata": false,
+          "gmNotes": "This file is in the OFFLINE storage, not this mainframe — requires connecting the offline unit or on-site access. Contains encrypted nonsense; the real prize is elsewhere. Worth 0 nuyen."
+        }
+      ],
+      "slaves": [
+        {
+          "id": "sotf-sl-slave-security",
+          "name": "Lodge Security System",
+          "type": "SecurityCamera",
+          "description": "Integrated security system — cameras throughout the lodge, maglocks on all secured doors, motion sensors in restricted areas.",
+          "controlEffect": "Decker gains full control of all lodge cameras (can loop feeds or disable sections), can lock/unlock maglocks remotely. Physical security is effectively blind for duration of control.",
+          "isEncrypted": false,
+          "hasBomb": false,
+          "gmNotes": "Control gives the physical team a significant window. Hestaby's shamans are not monitored through this system — only the mundane guards rely on it."
+        }
+      ],
+      "paydata": [],
+      "nextHostIds": ["host-sotf-shasta-offline"],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-sotf-shasta-offline",
+      "name": "Shasta Lodge — Offline Data Storage",
+      "description": "A locked vault node, sealed from the LTG. No external connections. The Kallisti file sits in a reinforced data cage at the center, wrapped in Scramble IC.",
+      "metaphor": "Sealed vault — bare concrete walls, a single locked cage in the center, emergency lighting only",
+      "securityCode": "Red",
+      "securityValue": 9,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 13,
+        "files": 11,
+        "slave": 13,
+        "control": 13,
+        "index": 13
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 20,
+      "securitySheaf": [
+        {
+          "id": "sotf-ofs-step-02",
+          "triggerValue": 2,
+          "gmNotes": "Crippler (jammer) — same as mainframe.",
+          "ic": [
+            {
+              "id": "sotf-ofs-ic-crippler-jammer-10",
+              "type": "Crippler",
+              "category": "ProactiveWhite",
+              "rating": 10,
+              "options": [],
+              "targetAttribute": "Sensors",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "sotf-ofs-step-04",
+          "triggerValue": 4,
+          "gmNotes": "Tar Pit (Armor).",
+          "ic": [
+            {
+              "id": "sotf-ofs-ic-tarpit-8",
+              "type": "TarPit",
+              "category": "ReactiveGray",
+              "rating": 8,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-ofs-step-07",
+          "triggerValue": 7,
+          "gmNotes": "Crippler (marker) Expert — targets Masking.",
+          "ic": [
+            {
+              "id": "sotf-ofs-ic-crippler-marker-8",
+              "type": "Crippler",
+              "category": "ProactiveWhite",
+              "rating": 8,
+              "options": ["Expert"],
+              "targetAttribute": "Masking",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-ofs-step-09",
+          "triggerValue": 9,
+          "alertChange": "passive",
+          "gmNotes": "Passive Alert.",
+          "ic": []
+        },
+        {
+          "id": "sotf-ofs-step-12",
+          "triggerValue": 12,
+          "gmNotes": "Probe-10 (Trap), Sparky-10 (Trap), Lethal Black-8.",
+          "ic": [
+            {
+              "id": "sotf-ofs-ic-probe-10",
+              "type": "Probe",
+              "category": "ReactiveWhite",
+              "rating": 10,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            },
+            {
+              "id": "sotf-ofs-ic-sparky-10",
+              "type": "Sparky",
+              "category": "ProactiveGray",
+              "rating": 10,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            },
+            {
+              "id": "sotf-ofs-ic-lethal-8",
+              "type": "Lethal",
+              "category": "Black",
+              "rating": 8,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-ofs-step-16",
+          "triggerValue": 16,
+          "gmNotes": "Construct-11 (Trap) containing Blaster-11.",
+          "ic": [
+            {
+              "id": "sotf-ofs-ic-construct-11",
+              "type": "Construct",
+              "category": "ProactiveWhite",
+              "rating": 11,
+              "options": ["Trap"],
+              "isConstruct": true,
+              "constructPayload": [
+                {
+                  "id": "sotf-ofs-ic-blaster-11-inner",
+                  "type": "Blaster",
+                  "category": "ProactiveGray",
+                  "rating": 11,
+                  "options": [],
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 11
+                }
+              ],
+              "status": "dormant",
+              "currentRating": 11
+            }
+          ]
+        },
+        {
+          "id": "sotf-ofs-step-20",
+          "triggerValue": 20,
+          "alertChange": "shutdown",
+          "gmNotes": "OFFLINE SYSTEM SHUTDOWN at step 20 (earlier than mainframe). Two Killer-10 then system locks.",
+          "ic": [
+            {
+              "id": "sotf-ofs-ic-killer-10a",
+              "type": "Killer",
+              "category": "ProactiveWhite",
+              "rating": 10,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            },
+            {
+              "id": "sotf-ofs-ic-killer-10b",
+              "type": "Killer",
+              "category": "ProactiveWhite",
+              "rating": 10,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "id": "sotf-ofs-file-kallisti",
+          "name": "KALLISTI.arc",
+          "description": "500 Mp archive. Dense, apparently meaningless text. A Computer (6) test reveals the file has been tampered with — it's worthless planted data. The real prize doesn't exist.",
+          "sizeMp": 500,
+          "defense": "none",
+          "isPaydata": false,
+          "gmNotes": "Protected by Scramble IC-8 (not in builder — GM narrates). The file is bait. Worth 0 nuyen. Decker will not discover this until the file is analyzed."
+        }
+      ],
+      "slaves": [],
+      "paydata": [],
+      "nextHostIds": [],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-sotf-children-dragon",
+      "name": "Children of the Dragon — Temple Host",
+      "description": "A cathedral rendered in green-gold circuitry, dragon iconography etched into every surface. Ghostwalker's sigil floats above the access point. Security icons manifest as dragon-scale knights.",
+      "metaphor": "Gothic cathedral-meets-digital-dragon-temple — dragon scale walls, floating Ghostwalker sigil, circuitry veins pulsing green-gold",
+      "securityCode": "Orange",
+      "securityValue": 7,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 12,
+        "files": 14,
+        "slave": 14,
+        "control": 11,
+        "index": 12
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 72,
+      "securitySheaf": [
+        {
+          "id": "sotf-cd-step-03",
+          "triggerValue": 3,
+          "gmNotes": "Tar Baby (Armor) activates — first line of defense.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-tarbaby-7",
+              "type": "TarBaby",
+              "category": "ReactiveWhite",
+              "rating": 7,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 7
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-08",
+          "triggerValue": 8,
+          "gmNotes": "Probe-9 (Trap) and Lethal Black-7 (Armor). The Trap on the Probe fires if it's crashed.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-probe-9",
+              "type": "Probe",
+              "category": "ReactiveWhite",
+              "rating": 9,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 9
+            },
+            {
+              "id": "sotf-cd-ic-lethal-black-7a",
+              "type": "Lethal",
+              "category": "Black",
+              "rating": 7,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 7
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-11",
+          "triggerValue": 11,
+          "gmNotes": "Tar Pit (Armor).",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-tarpit-5a",
+              "type": "TarPit",
+              "category": "ReactiveGray",
+              "rating": 5,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 5
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-14",
+          "triggerValue": 14,
+          "gmNotes": "Killer-5 (Shield).",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-killer-5a",
+              "type": "Killer",
+              "category": "ProactiveWhite",
+              "rating": 5,
+              "options": ["Shield"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 5
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-18",
+          "triggerValue": 18,
+          "gmNotes": "Tar Pit-9 (Shift).",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-tarpit-9",
+              "type": "TarPit",
+              "category": "ReactiveGray",
+              "rating": 9,
+              "options": ["Shift"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 9
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-21",
+          "triggerValue": 21,
+          "gmNotes": "Probe-5 (Trap) plus Lethal Black-10 (Armor). This is a nasty Black IC combo.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-probe-5",
+              "type": "Probe",
+              "category": "ReactiveWhite",
+              "rating": 5,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 5
+            },
+            {
+              "id": "sotf-cd-ic-lethal-black-10",
+              "type": "Lethal",
+              "category": "Black",
+              "rating": 10,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-26",
+          "triggerValue": 26,
+          "alertChange": "passive",
+          "gmNotes": "Passive Alert.",
+          "ic": []
+        },
+        {
+          "id": "sotf-cd-step-29",
+          "triggerValue": 29,
+          "gmNotes": "Ripper (bind-rip, Shift) — targets Evasion.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-ripper-7a",
+              "type": "Ripper",
+              "category": "ProactiveGray",
+              "rating": 7,
+              "options": ["Shift"],
+              "targetAttribute": "Evasion",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 7
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-32",
+          "triggerValue": 32,
+          "gmNotes": "Crippler (acid, Armor) — targets Bod.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-crippler-acid-9",
+              "type": "Crippler",
+              "category": "ProactiveWhite",
+              "rating": 9,
+              "options": ["Armor"],
+              "targetAttribute": "Bod",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 9
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-37",
+          "triggerValue": 37,
+          "gmNotes": "Ripper (acid-rip, Shift) — targets Bod.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-ripper-7b",
+              "type": "Ripper",
+              "category": "ProactiveGray",
+              "rating": 7,
+              "options": ["Shift"],
+              "targetAttribute": "Bod",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 7
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-41",
+          "triggerValue": 41,
+          "gmNotes": "Sparky-5 (Armor).",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-sparky-5a",
+              "type": "Sparky",
+              "category": "ProactiveGray",
+              "rating": 5,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 5
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-45",
+          "triggerValue": 45,
+          "gmNotes": "Sparky-5 (Shield).",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-sparky-5b",
+              "type": "Sparky",
+              "category": "ProactiveGray",
+              "rating": 5,
+              "options": ["Shield"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 5
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-49",
+          "triggerValue": 49,
+          "gmNotes": "Sparky-7 (Trap) plus Sparky-9. Brutal Sparky pair — both fire simultaneously.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-sparky-7",
+              "type": "Sparky",
+              "category": "ProactiveGray",
+              "rating": 7,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 7
+            },
+            {
+              "id": "sotf-cd-ic-sparky-9",
+              "type": "Sparky",
+              "category": "ProactiveGray",
+              "rating": 9,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 9
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-54",
+          "triggerValue": 54,
+          "alertChange": "active",
+          "gmNotes": "Active Alert. Morningstar is personally alerted and mobilizes magical defenses.",
+          "ic": []
+        },
+        {
+          "id": "sotf-cd-step-59",
+          "triggerValue": 59,
+          "gmNotes": "Ripper (bind-rip, Cascading) — targets Evasion. Cascading builds if it keeps missing.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-ripper-7c",
+              "type": "Ripper",
+              "category": "ProactiveGray",
+              "rating": 7,
+              "options": ["Cascading"],
+              "targetAttribute": "Evasion",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 7
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-62",
+          "triggerValue": 62,
+          "gmNotes": "Scout-7 (Armor) — building a trace on the decker.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-scout-7",
+              "type": "Scout",
+              "category": "ProactiveWhite",
+              "rating": 7,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 7
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-65",
+          "triggerValue": 65,
+          "gmNotes": "Non-Lethal Black IC-5.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-nonlethal-5",
+              "type": "NonLethal",
+              "category": "Black",
+              "rating": 5,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 5
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-68",
+          "triggerValue": 68,
+          "gmNotes": "Crippler (binder) — targets Evasion.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-crippler-binder-5",
+              "type": "Crippler",
+              "category": "ProactiveWhite",
+              "rating": 5,
+              "options": [],
+              "targetAttribute": "Evasion",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 5
+            }
+          ]
+        },
+        {
+          "id": "sotf-cd-step-72",
+          "triggerValue": 72,
+          "alertChange": "shutdown",
+          "gmNotes": "Lethal Black IC (cyberphobia subtype) — GM narrates. Then shutdown.",
+          "ic": [
+            {
+              "id": "sotf-cd-ic-lethal-black-7b",
+              "type": "Lethal",
+              "category": "Black",
+              "rating": 7,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 7
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "id": "sotf-cd-file-morningstar",
+          "name": "MORNINGSTAR_PERSONAL.arc",
+          "description": "Morningstar's personal files and telecomm records (150 Mp). Contains records of PLTG calls to the German Alliance and Saeder-Krupp, plus a private journal mentioning an unnamed 'master'. Appears to implicate Morningstar in working for Lofwyr.",
+          "sizeMp": 150,
+          "defense": "dataBomb",
+          "bombRating": 5,
+          "isPaydata": false,
+          "gmNotes": "Rating 5 Data Bomb. These files are the run objective — hand them over to Goldwing. IMPORTANT: A Computer (6) test reveals the files were TAMPERED WITH and actually exonerate Morningstar. Someone is framing him."
+        }
+      ],
+      "slaves": [],
+      "paydata": [],
+      "nextHostIds": [],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-sotf-wuxing-skytower",
+      "name": "Wuxing Skytower — Corporate Host",
+      "description": "An immaculate crystal tower rising from a sea of crimson data-silk. Wuxing's dragon-and-pearl logo rotates above the access hub. Security manifests as jade dragon knights in corporate livery. The background count is palpable even in the Matrix — something tremendous pulses beneath this place.",
+      "metaphor": "Crystal corporate tower — jade and crimson, Wuxing corporate-dragon iconography, background hum of barely-contained dragon-line energy",
+      "securityCode": "UV",
+      "securityValue": 12,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 14,
+        "files": 14,
+        "slave": 14,
+        "control": 13,
+        "index": 14
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 62,
+      "securitySheaf": [
+        {
+          "id": "sotf-wx-step-04",
+          "triggerValue": 4,
+          "gmNotes": "Scout-8 (Cascading) — first detection IC. Gets stronger each time it misses.",
+          "ic": [
+            {
+              "id": "sotf-wx-ic-scout-8",
+              "type": "Scout",
+              "category": "ProactiveWhite",
+              "rating": 8,
+              "options": ["Cascading"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-wx-step-08",
+          "triggerValue": 8,
+          "gmNotes": "Trace-8 (Shift) — building a datatrail on the decker.",
+          "ic": [
+            {
+              "id": "sotf-wx-ic-trace-8",
+              "type": "Trace",
+              "category": "ReactiveWhite",
+              "rating": 8,
+              "options": ["Shift"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-wx-step-12",
+          "triggerValue": 12,
+          "gmNotes": "Crippler (binder, Shift) — targets Evasion.",
+          "ic": [
+            {
+              "id": "sotf-wx-ic-crippler-binder-10",
+              "type": "Crippler",
+              "category": "ProactiveWhite",
+              "rating": 10,
+              "options": ["Shift"],
+              "targetAttribute": "Evasion",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "sotf-wx-step-17",
+          "triggerValue": 17,
+          "gmNotes": "Crippler (jammer, Armor) — targets Sensors.",
+          "ic": [
+            {
+              "id": "sotf-wx-ic-crippler-jammer-8",
+              "type": "Crippler",
+              "category": "ProactiveWhite",
+              "rating": 8,
+              "options": ["Armor"],
+              "targetAttribute": "Sensors",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-wx-step-22",
+          "triggerValue": 22,
+          "alertChange": "passive",
+          "gmNotes": "Passive Alert. NOTE: Step numbers for Wuxing sheaf are approximate — source OCR could not recover step values.",
+          "ic": []
+        },
+        {
+          "id": "sotf-wx-step-26",
+          "triggerValue": 26,
+          "gmNotes": "Ripper (bind-rip, Armor) — targets Evasion.",
+          "ic": [
+            {
+              "id": "sotf-wx-ic-ripper-6",
+              "type": "Ripper",
+              "category": "ProactiveGray",
+              "rating": 6,
+              "options": ["Armor"],
+              "targetAttribute": "Evasion",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 6
+            }
+          ]
+        },
+        {
+          "id": "sotf-wx-step-30",
+          "triggerValue": 30,
+          "gmNotes": "Killer-12 (Armor) — the heavy hitter. This is a very high rating Killer.",
+          "ic": [
+            {
+              "id": "sotf-wx-ic-killer-12",
+              "type": "Killer",
+              "category": "ProactiveWhite",
+              "rating": 12,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 12
+            }
+          ]
+        },
+        {
+          "id": "sotf-wx-step-36",
+          "triggerValue": 36,
+          "gmNotes": "Blaster-8 (Party option). Party option means it fires repeatedly — GM narrates.",
+          "ic": [
+            {
+              "id": "sotf-wx-ic-blaster-8",
+              "type": "Blaster",
+              "category": "ProactiveGray",
+              "rating": 8,
+              "options": ["Party"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "sotf-wx-step-41",
+          "triggerValue": 41,
+          "gmNotes": "Sparky-6 (Shift).",
+          "ic": [
+            {
+              "id": "sotf-wx-ic-sparky-6",
+              "type": "Sparky",
+              "category": "ProactiveGray",
+              "rating": 6,
+              "options": ["Shift"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 6
+            }
+          ]
+        },
+        {
+          "id": "sotf-wx-step-46",
+          "triggerValue": 46,
+          "alertChange": "active",
+          "gmNotes": "Active Alert. Wuxing security mage arrives in astral form on next combat turn.",
+          "ic": []
+        },
+        {
+          "id": "sotf-wx-step-54",
+          "triggerValue": 54,
+          "gmNotes": "Lethal Black IC-6.",
+          "ic": [
+            {
+              "id": "sotf-wx-ic-lethal-black-6",
+              "type": "Lethal",
+              "category": "Black",
+              "rating": 6,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 6
+            }
+          ]
+        },
+        {
+          "id": "sotf-wx-step-62",
+          "triggerValue": 62,
+          "alertChange": "shutdown",
+          "gmNotes": "System shutdown.",
+          "ic": []
+        }
+      ],
+      "files": [],
+      "slaves": [
+        {
+          "id": "sotf-wx-slave-elevator",
+          "name": "Executive Elevator",
+          "type": "DoorLock",
+          "description": "The executive elevator to the penthouse. Requires a special passcode known only to high-ranking Wuxing executives.",
+          "controlEffect": "Decker overrides the passcode, granting the team access to the executive elevator and penthouse level. No alarm triggered if done cleanly.",
+          "isEncrypted": false,
+          "hasBomb": false,
+          "gmNotes": "Control Slave action to bypass. Alternative: kidnap a Wuxing exec for the passcode (mundane approach)."
+        },
+        {
+          "id": "sotf-wx-slave-cameras",
+          "name": "Exterior Surveillance Cameras",
+          "type": "SecurityCamera",
+          "description": "Cameras covering all exterior approaches to the Skytower. Pick up anything larger than a bird.",
+          "controlEffect": "Edit Slave disables or loops camera feeds — allows team to approach or scale the exterior without being detected by mundane security.",
+          "isEncrypted": false,
+          "hasBomb": false,
+          "gmNotes": "Needed if the team is climbing the outside or approaching the rooftop helipad. Background count (+4 TN) applies to astral security as well."
+        },
+        {
+          "id": "sotf-wx-slave-alarms",
+          "name": "Emergency Stairwell Alarm",
+          "type": "Alarm",
+          "description": "The stairwell to the penthouse cannot be accessed without triggering a building-wide alarm.",
+          "controlEffect": "Decker suppresses the alarm signal, allowing the team to use the emergency stairwell undetected.",
+          "isEncrypted": false,
+          "hasBomb": false,
+          "gmNotes": "Edit Slave action to suppress. If alarm fires, Wuxing security responds in force within minutes."
+        }
+      ],
+      "paydata": [],
+      "nextHostIds": [],
+      "specialFeatures": {}
+    }
+
+  ]
+}

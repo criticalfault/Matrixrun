@@ -1,0 +1,936 @@
+{
+  "id": "corp-punishment-001",
+  "name": "Corporate Punishment",
+  "description": "Three adventures from 'Corporate Punishment' (SR3). Double Take: infiltrate Universal Omnitech's magical research lab. Second Effort: breach Proteus AG's dual onshore/offshore facility. Legacy: navigate MIT&T's layered campus network.",
+  "version": "1.0",
+  "gmNotes": "Source: Corporate Punishment (WizKids/FanPro, SR3). Three adventures: Double Take (p.24), Second Effort (p.47), Legacy (p.71). No file stat blocks are printed for any host in this book — all file/paydata entries are described narratively and entered here with GM estimates. Proteus AG sheaves use 'ACIFS' subsystem order (Access/Control/Index/Files/Slave) rather than the standard SR3 A/F/S/C/I order — values have been remapped accordingly. Proteus Decker NPC encounters are noted in sheaf step GM notes; they do not appear as IC instances.",
+  "createdAt": 1750000000000,
+  "entryHostIds": [
+    "host-cp-omnitech-rdlab",
+    "host-cp-proteus-onshore",
+    "host-cp-mitandt-public"
+  ],
+  "hosts": [
+
+    {
+      "id": "host-cp-omnitech-rdlab",
+      "name": "Universal Omnitech R&D Lab",
+      "description": "An undersea castle rising from a reef of bioluminescent data. Schools of fish represent data transfers. Black IC manifests as killer whales, Killer and Ripper IC as sharks, Blasters as electric eels, Traces as octopi. Unless a reality filter is installed, the decker's icon appears as a mermaid or merman.",
+      "metaphor": "Undersea castle — coral reefs, sunken ships, bioluminescent data-fish, killer whale Black IC",
+      "securityCode": "Orange",
+      "securityValue": 8,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 12,
+        "files": 12,
+        "slave": 12,
+        "control": 12,
+        "index": 10
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 38,
+      "securitySheaf": [
+        {
+          "id": "cp-om-step-05",
+          "triggerValue": 5,
+          "gmNotes": "Trace-6 — first detection IC. Manifests as an octopus.",
+          "ic": [
+            {
+              "id": "cp-om-ic-trace-6",
+              "type": "Trace",
+              "category": "ReactiveWhite",
+              "rating": 6,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 6
+            }
+          ]
+        },
+        {
+          "id": "cp-om-step-09",
+          "triggerValue": 9,
+          "gmNotes": "Trace-8 (Armor).",
+          "ic": [
+            {
+              "id": "cp-om-ic-trace-8",
+              "type": "Trace",
+              "category": "ReactiveWhite",
+              "rating": 8,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "cp-om-step-12",
+          "triggerValue": 12,
+          "alertChange": "passive",
+          "gmNotes": "Passive Alert.",
+          "ic": []
+        },
+        {
+          "id": "cp-om-step-15",
+          "triggerValue": 15,
+          "gmNotes": "Blaster-8 (Armor). Manifests as an electric eel.",
+          "ic": [
+            {
+              "id": "cp-om-ic-blaster-8a",
+              "type": "Blaster",
+              "category": "ProactiveGray",
+              "rating": 8,
+              "options": ["Armor"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "cp-om-step-19",
+          "triggerValue": 19,
+          "gmNotes": "Ripper (jam-rip, Shield) — targets Sensors. Source text: 'Sensor Ripper 6 (Shielding).'",
+          "ic": [
+            {
+              "id": "cp-om-ic-ripper-sensors-6",
+              "type": "Ripper",
+              "category": "ProactiveGray",
+              "rating": 6,
+              "options": ["Shield"],
+              "targetAttribute": "Sensors",
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 6
+            }
+          ]
+        },
+        {
+          "id": "cp-om-step-23",
+          "triggerValue": 23,
+          "gmNotes": "Probe-6 (Trap). When the Probe is crashed or completes its run, the Trap releases a Killer-9 (Armor). GM should activate the Killer-9 manually when the Trap fires.",
+          "ic": [
+            {
+              "id": "cp-om-ic-probe-6",
+              "type": "Probe",
+              "category": "ReactiveWhite",
+              "rating": 6,
+              "options": ["Trap"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 6
+            }
+          ]
+        },
+        {
+          "id": "cp-om-step-28",
+          "triggerValue": 28,
+          "alertChange": "active",
+          "gmNotes": "Active Alert triggers simultaneously with Blaster-8 (Armor, Expert Defense). The Expert option applies a -1 TN penalty to the IC's defense rolls.",
+          "ic": [
+            {
+              "id": "cp-om-ic-blaster-8b",
+              "type": "Blaster",
+              "category": "ProactiveGray",
+              "rating": 8,
+              "options": ["Armor", "Expert"],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "cp-om-step-33",
+          "triggerValue": 33,
+          "gmNotes": "Lethal Black IC-6. Manifests as a killer whale.",
+          "ic": [
+            {
+              "id": "cp-om-ic-lethal-6",
+              "type": "Lethal",
+              "category": "Black",
+              "rating": 6,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 6
+            }
+          ]
+        },
+        {
+          "id": "cp-om-step-38",
+          "triggerValue": 38,
+          "alertChange": "shutdown",
+          "gmNotes": "System shutdown.",
+          "ic": []
+        }
+      ],
+      "files": [
+        {
+          "id": "cp-om-file-metagene-research",
+          "name": "METAGENE_RESEARCH.arc",
+          "description": "3,000+ Mp of magical metagene research data — the target of the run. Stored in a sunken ship node encrusted with shells. Downloading requires approximately ten Combat Turns.",
+          "sizeMp": 3000,
+          "defense": "none",
+          "isPaydata": true,
+          "gmNotes": "No nuyen value printed in source — GM assigns based on buyer. The data relates to universal metahuman magical potential and is extremely sensitive. Mr. Johnson (Universal Omnitech's competitor) wants it badly."
+        }
+      ],
+      "slaves": [],
+      "paydata": [],
+      "nextHostIds": [],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-cp-proteus-onshore",
+      "name": "Proteus AG — Onshore Facility",
+      "description": "An enormous aquarium. Datastores appear as treasure chests on the floor. Security manifests as a deep-sea diver. IC are gray or white sharks. Proteus NPC deckers wear black diving suits with harpoon guns.",
+      "metaphor": "Giant aquarium — treasure chest datastores, deep-sea diver security node, shark IC, diving-suit NPC deckers",
+      "securityCode": "Red",
+      "securityValue": 7,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 14,
+        "files": 12,
+        "slave": 14,
+        "control": 13,
+        "index": 14
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 30,
+      "securitySheaf": [
+        {
+          "id": "cp-on-step-03",
+          "triggerValue": 3,
+          "gmNotes": "Trace-10.",
+          "ic": [
+            {
+              "id": "cp-on-ic-trace-10",
+              "type": "Trace",
+              "category": "ReactiveWhite",
+              "rating": 10,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "cp-on-step-05",
+          "triggerValue": 5,
+          "gmNotes": "Probe-10.",
+          "ic": [
+            {
+              "id": "cp-on-ic-probe-10",
+              "type": "Probe",
+              "category": "ReactiveWhite",
+              "rating": 10,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "cp-on-step-06",
+          "triggerValue": 6,
+          "gmNotes": "Crippler Construct — releases four Crippler IC simultaneously, one targeting each persona attribute (Bod/Evasion/Masking/Sensors). All rating 5.",
+          "ic": [
+            {
+              "id": "cp-on-ic-construct-cripplers",
+              "type": "Construct",
+              "category": "ProactiveWhite",
+              "rating": 5,
+              "options": [],
+              "isConstruct": true,
+              "constructPayload": [
+                {
+                  "id": "cp-on-ic-crippler-acid-5",
+                  "type": "Crippler",
+                  "category": "ProactiveWhite",
+                  "rating": 5,
+                  "options": [],
+                  "targetAttribute": "Bod",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 5
+                },
+                {
+                  "id": "cp-on-ic-crippler-binder-5",
+                  "type": "Crippler",
+                  "category": "ProactiveWhite",
+                  "rating": 5,
+                  "options": [],
+                  "targetAttribute": "Evasion",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 5
+                },
+                {
+                  "id": "cp-on-ic-crippler-jammer-5",
+                  "type": "Crippler",
+                  "category": "ProactiveWhite",
+                  "rating": 5,
+                  "options": [],
+                  "targetAttribute": "Sensors",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 5
+                },
+                {
+                  "id": "cp-on-ic-crippler-marker-5",
+                  "type": "Crippler",
+                  "category": "ProactiveWhite",
+                  "rating": 5,
+                  "options": [],
+                  "targetAttribute": "Masking",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 5
+                }
+              ],
+              "status": "dormant",
+              "currentRating": 5
+            }
+          ]
+        },
+        {
+          "id": "cp-on-step-09",
+          "triggerValue": 9,
+          "gmNotes": "PROTEUS DECKER (NPC) enters the host. Superior/Professional rating decker in black diving suit with harpoon gun. Run as a hostile NPC decker — initiative, attack, and defend per standard cybercombat rules.",
+          "ic": []
+        },
+        {
+          "id": "cp-on-step-10",
+          "triggerValue": 10,
+          "gmNotes": "Psychotropic IC-10 (Judas subtype). Judas induces paranoia and distrust — the decker may act against their teammates. GM narrates behavioral conditioning effect.",
+          "ic": [
+            {
+              "id": "cp-on-ic-psychotropic-judas-10",
+              "type": "Psychotropic",
+              "category": "Black",
+              "rating": 10,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "cp-on-step-12",
+          "triggerValue": 12,
+          "alertChange": "passive",
+          "gmNotes": "Passive Alert.",
+          "ic": []
+        },
+        {
+          "id": "cp-on-step-14",
+          "triggerValue": 14,
+          "gmNotes": "Ripper Construct — releases four Ripper IC simultaneously, each targeting a different persona attribute. All rating 8.",
+          "ic": [
+            {
+              "id": "cp-on-ic-construct-rippers",
+              "type": "Construct",
+              "category": "ProactiveGray",
+              "rating": 8,
+              "options": [],
+              "isConstruct": true,
+              "constructPayload": [
+                {
+                  "id": "cp-on-ic-ripper-acid-8",
+                  "type": "Ripper",
+                  "category": "ProactiveGray",
+                  "rating": 8,
+                  "options": [],
+                  "targetAttribute": "Bod",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 8
+                },
+                {
+                  "id": "cp-on-ic-ripper-bind-8",
+                  "type": "Ripper",
+                  "category": "ProactiveGray",
+                  "rating": 8,
+                  "options": [],
+                  "targetAttribute": "Evasion",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 8
+                },
+                {
+                  "id": "cp-on-ic-ripper-jam-8",
+                  "type": "Ripper",
+                  "category": "ProactiveGray",
+                  "rating": 8,
+                  "options": [],
+                  "targetAttribute": "Sensors",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 8
+                },
+                {
+                  "id": "cp-on-ic-ripper-mark-8",
+                  "type": "Ripper",
+                  "category": "ProactiveGray",
+                  "rating": 8,
+                  "options": [],
+                  "targetAttribute": "Masking",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 8
+                }
+              ],
+              "status": "dormant",
+              "currentRating": 8
+            }
+          ]
+        },
+        {
+          "id": "cp-on-step-16",
+          "triggerValue": 16,
+          "gmNotes": "Worm Construct — releases Dataworm-10 and Deathworm-10. Worms burrow through the decker's programs — GM narrates data corruption effects per SR3 Worm rules.",
+          "ic": [
+            {
+              "id": "cp-on-ic-construct-worms",
+              "type": "Construct",
+              "category": "ProactiveGray",
+              "rating": 10,
+              "options": [],
+              "isConstruct": true,
+              "constructPayload": [
+                {
+                  "id": "cp-on-ic-dataworm-10",
+                  "type": "Worm",
+                  "category": "ProactiveGray",
+                  "rating": 10,
+                  "options": [],
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 10
+                },
+                {
+                  "id": "cp-on-ic-deathworm-10",
+                  "type": "Worm",
+                  "category": "ProactiveGray",
+                  "rating": 10,
+                  "options": [],
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 10
+                }
+              ],
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "cp-on-step-17",
+          "triggerValue": 17,
+          "gmNotes": "PROTEUS DECKER (NPC) — second decker appears.",
+          "ic": []
+        },
+        {
+          "id": "cp-on-step-20",
+          "triggerValue": 20,
+          "gmNotes": "PROTEUS DECKER (NPC) — third decker.",
+          "ic": []
+        },
+        {
+          "id": "cp-on-step-25",
+          "triggerValue": 25,
+          "gmNotes": "PROTEUS DECKER (NPC) — fourth decker.",
+          "ic": []
+        },
+        {
+          "id": "cp-on-step-30",
+          "triggerValue": 30,
+          "alertChange": "shutdown",
+          "gmNotes": "System shutdown.",
+          "ic": []
+        }
+      ],
+      "files": [],
+      "slaves": [],
+      "paydata": [],
+      "nextHostIds": ["host-cp-proteus-offshore"],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-cp-proteus-offshore",
+      "name": "Proteus AG — Offshore Facility",
+      "description": "Identical aquarium sculpt to the Onshore facility, but deeper, darker, and more heavily patrolled. Accessible from the Onshore system via the security office node — a choke point the decker must push through.",
+      "metaphor": "Deep aquarium — darker, colder, more hostile than onshore. Same sculpt, higher stakes.",
+      "securityCode": "Red",
+      "securityValue": 9,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 13,
+        "files": 18,
+        "slave": 15,
+        "control": 13,
+        "index": 16
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 50,
+      "securitySheaf": [
+        {
+          "id": "cp-off-step-02",
+          "triggerValue": 2,
+          "gmNotes": "Trace-10.",
+          "ic": [
+            {
+              "id": "cp-off-ic-trace-10",
+              "type": "Trace",
+              "category": "ReactiveWhite",
+              "rating": 10,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "cp-off-step-04",
+          "triggerValue": 4,
+          "gmNotes": "Probe-10.",
+          "ic": [
+            {
+              "id": "cp-off-ic-probe-10",
+              "type": "Probe",
+              "category": "ReactiveWhite",
+              "rating": 10,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "cp-off-step-06",
+          "triggerValue": 6,
+          "gmNotes": "PROTEUS DECKER (NPC) — appears immediately at step 6.",
+          "ic": []
+        },
+        {
+          "id": "cp-off-step-08",
+          "triggerValue": 8,
+          "gmNotes": "Crippler Construct — four Cripplers (Acid/Binder/Jammer/Marker), all rating 7.",
+          "ic": [
+            {
+              "id": "cp-off-ic-construct-cripplers",
+              "type": "Construct",
+              "category": "ProactiveWhite",
+              "rating": 7,
+              "options": [],
+              "isConstruct": true,
+              "constructPayload": [
+                {
+                  "id": "cp-off-ic-crippler-acid-7",
+                  "type": "Crippler",
+                  "category": "ProactiveWhite",
+                  "rating": 7,
+                  "options": [],
+                  "targetAttribute": "Bod",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 7
+                },
+                {
+                  "id": "cp-off-ic-crippler-binder-7",
+                  "type": "Crippler",
+                  "category": "ProactiveWhite",
+                  "rating": 7,
+                  "options": [],
+                  "targetAttribute": "Evasion",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 7
+                },
+                {
+                  "id": "cp-off-ic-crippler-jammer-7",
+                  "type": "Crippler",
+                  "category": "ProactiveWhite",
+                  "rating": 7,
+                  "options": [],
+                  "targetAttribute": "Sensors",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 7
+                },
+                {
+                  "id": "cp-off-ic-crippler-marker-7",
+                  "type": "Crippler",
+                  "category": "ProactiveWhite",
+                  "rating": 7,
+                  "options": [],
+                  "targetAttribute": "Masking",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 7
+                }
+              ],
+              "status": "dormant",
+              "currentRating": 7
+            }
+          ]
+        },
+        {
+          "id": "cp-off-step-10",
+          "triggerValue": 10,
+          "gmNotes": "Tar Baby-10.",
+          "ic": [
+            {
+              "id": "cp-off-ic-tarbaby-10",
+              "type": "TarBaby",
+              "category": "ReactiveWhite",
+              "rating": 10,
+              "options": [],
+              "isConstruct": false,
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "cp-off-step-12",
+          "triggerValue": 12,
+          "gmNotes": "PROTEUS DECKER (NPC).",
+          "ic": []
+        },
+        {
+          "id": "cp-off-step-13",
+          "triggerValue": 13,
+          "gmNotes": "Psychotropic Construct — releases Judas-10 (paranoia/distrust) and Matrix Maniac-10 (aggression/violence). Both are Psychotropic IC subtypes. GM narrates behavioral conditioning for each.",
+          "ic": [
+            {
+              "id": "cp-off-ic-construct-psychotropic",
+              "type": "Construct",
+              "category": "Black",
+              "rating": 10,
+              "options": [],
+              "isConstruct": true,
+              "constructPayload": [
+                {
+                  "id": "cp-off-ic-judas-10",
+                  "type": "Psychotropic",
+                  "category": "Black",
+                  "rating": 10,
+                  "options": [],
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 10
+                },
+                {
+                  "id": "cp-off-ic-matrix-maniac-10",
+                  "type": "Psychotropic",
+                  "category": "Black",
+                  "rating": 10,
+                  "options": [],
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 10
+                }
+              ],
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "cp-off-step-14",
+          "triggerValue": 14,
+          "gmNotes": "PROTEUS DECKER (NPC).",
+          "ic": []
+        },
+        {
+          "id": "cp-off-step-15",
+          "triggerValue": 15,
+          "alertChange": "passive",
+          "gmNotes": "Passive Alert. No Active Alert step is listed in the source — the system escalates directly to higher-rated NPC deckers and then Shutdown.",
+          "ic": []
+        },
+        {
+          "id": "cp-off-step-17",
+          "triggerValue": 17,
+          "gmNotes": "PROTEUS DECKER (NPC).",
+          "ic": []
+        },
+        {
+          "id": "cp-off-step-20",
+          "triggerValue": 20,
+          "gmNotes": "Ripper Construct — four Rippers (Acid-rip/Bind-rip/Jam-rip/Mark-rip), all rating 10.",
+          "ic": [
+            {
+              "id": "cp-off-ic-construct-rippers",
+              "type": "Construct",
+              "category": "ProactiveGray",
+              "rating": 10,
+              "options": [],
+              "isConstruct": true,
+              "constructPayload": [
+                {
+                  "id": "cp-off-ic-ripper-acid-10",
+                  "type": "Ripper",
+                  "category": "ProactiveGray",
+                  "rating": 10,
+                  "options": [],
+                  "targetAttribute": "Bod",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 10
+                },
+                {
+                  "id": "cp-off-ic-ripper-bind-10",
+                  "type": "Ripper",
+                  "category": "ProactiveGray",
+                  "rating": 10,
+                  "options": [],
+                  "targetAttribute": "Evasion",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 10
+                },
+                {
+                  "id": "cp-off-ic-ripper-jam-10",
+                  "type": "Ripper",
+                  "category": "ProactiveGray",
+                  "rating": 10,
+                  "options": [],
+                  "targetAttribute": "Sensors",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 10
+                },
+                {
+                  "id": "cp-off-ic-ripper-mark-10",
+                  "type": "Ripper",
+                  "category": "ProactiveGray",
+                  "rating": 10,
+                  "options": [],
+                  "targetAttribute": "Masking",
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 10
+                }
+              ],
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "cp-off-step-22",
+          "triggerValue": 22,
+          "gmNotes": "PROTEUS DECKER (NPC).",
+          "ic": []
+        },
+        {
+          "id": "cp-off-step-25",
+          "triggerValue": 25,
+          "gmNotes": "Worm Construct — Dataworm-10 and Deathworm-10.",
+          "ic": [
+            {
+              "id": "cp-off-ic-construct-worms",
+              "type": "Construct",
+              "category": "ProactiveGray",
+              "rating": 10,
+              "options": [],
+              "isConstruct": true,
+              "constructPayload": [
+                {
+                  "id": "cp-off-ic-dataworm-10",
+                  "type": "Worm",
+                  "category": "ProactiveGray",
+                  "rating": 10,
+                  "options": [],
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 10
+                },
+                {
+                  "id": "cp-off-ic-deathworm-10",
+                  "type": "Worm",
+                  "category": "ProactiveGray",
+                  "rating": 10,
+                  "options": [],
+                  "isConstruct": false,
+                  "status": "dormant",
+                  "currentRating": 10
+                }
+              ],
+              "status": "dormant",
+              "currentRating": 10
+            }
+          ]
+        },
+        {
+          "id": "cp-off-step-27",
+          "triggerValue": 27,
+          "gmNotes": "PROTEUS DECKER (NPC).",
+          "ic": []
+        },
+        {
+          "id": "cp-off-step-30",
+          "triggerValue": 30,
+          "gmNotes": "PROTEUS DECKER (NPC).",
+          "ic": []
+        },
+        {
+          "id": "cp-off-step-35",
+          "triggerValue": 35,
+          "gmNotes": "PROTEUS DECKER (NPC).",
+          "ic": []
+        },
+        {
+          "id": "cp-off-step-40",
+          "triggerValue": 40,
+          "gmNotes": "PROTEUS DECKER (NPC).",
+          "ic": []
+        },
+        {
+          "id": "cp-off-step-50",
+          "triggerValue": 50,
+          "alertChange": "shutdown",
+          "gmNotes": "System shutdown.",
+          "ic": []
+        }
+      ],
+      "files": [],
+      "slaves": [],
+      "paydata": [],
+      "nextHostIds": [],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-cp-mitandt-public",
+      "name": "MIT&T — Public Area",
+      "description": "The public-facing MIT&T campus network. Organized by academic school (Architecture, Engineering, Humanities, Sloan Management, Science, Thaumaturgy, Liberal Arts) plus an Administrative area. Open to anyone with a guest account.",
+      "metaphor": "University campus — academic school buildings, administrative quad, open courtyards. Low security, lots of public data.",
+      "securityCode": "Blue",
+      "securityValue": 6,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 6,
+        "files": 8,
+        "slave": 6,
+        "control": 8,
+        "index": 8
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 99,
+      "securitySheaf": [],
+      "files": [],
+      "slaves": [],
+      "paydata": [],
+      "nextHostIds": ["host-cp-mitandt-campus-pltg"],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-cp-mitandt-campus-pltg",
+      "name": "MIT&T — Campus Private LTG",
+      "description": "The restricted campus network containing classified research, hermetic libraries, student work, and faculty papers. Requires a valid MIT&T student ID and password to enter. Some data is only accessible on a physical campus terminal. A secret backdoor connects DIMR and MCT to the security node for monitoring — finding it requires Matrix investigation.",
+      "metaphor": "Restricted academic vault — secure reading rooms, locked file stacks, restricted labs. Serious IC for a university network.",
+      "securityCode": "Green",
+      "securityValue": 8,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 9,
+        "files": 8,
+        "slave": 6,
+        "control": 9,
+        "index": 9
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 99,
+      "securitySheaf": [],
+      "files": [
+        {
+          "id": "cp-pltg-file-scrolls-search",
+          "name": "SCROLLS_OF_AK_LEAR (Legwork Entry)",
+          "description": "Search results for the Scrolls of the Elements / Scrolls of Ak'le'ar. Shadowland legwork: TN 6, search time 8 hours. The actual scrolls are physically in the Dunkelzahn Magical Research Building, not downloadable.",
+          "sizeMp": 10,
+          "defense": "none",
+          "isPaydata": false,
+          "gmNotes": "This represents a legwork search result, not a downloadable file in the traditional sense. Finding this leads the team to the Scroll Lab (host-cp-scroll-lab)."
+        }
+      ],
+      "slaves": [],
+      "paydata": [],
+      "nextHostIds": ["host-cp-mitandt-security-net"],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-cp-mitandt-security-net",
+      "name": "MIT&T — Campus Security Net",
+      "description": "Accessible from the campus PLTG. Security is trace-and-kick: once an unauthorized decker is found, they are ejected and police are notified. All Trace IC in this system have rating 1 higher than expected; even higher in secured sub-areas.",
+      "metaphor": "Security control room — monitoring stations, alert boards, reinforced doors. No mercy for unauthorized access.",
+      "securityCode": "Orange",
+      "securityValue": 8,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 11,
+        "files": 10,
+        "slave": 7,
+        "control": 12,
+        "index": 12
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 99,
+      "securitySheaf": [],
+      "files": [],
+      "slaves": [],
+      "paydata": [],
+      "nextHostIds": [],
+      "specialFeatures": {}
+    },
+
+    {
+      "id": "host-cp-scroll-lab",
+      "name": "Dunkelzahn Magical Research Building — Scroll Lab",
+      "description": "The off-line computer system in the Scroll Lab at MIT&T. Computers are completely off-line when the runners arrive — no remote access possible. On-site access only. Contains magical research files and digital scans of the Scrolls of Ak'le'ar.",
+      "metaphor": "Isolated secure terminal — bare workstations, sealed from the LTG. Physical security: Rating 7 alarm ward, Force 12 masking ward on display case, Rating 5 AOD trackers in all five scrolls, pressure plate in display case, two cameras, motion sensor.",
+      "securityCode": "Orange",
+      "securityValue": 7,
+      "nodeType": "host",
+      "subsystems": {
+        "access": 10,
+        "files": 10,
+        "slave": 8,
+        "control": 9,
+        "index": 8
+      },
+      "subsystemVariants": [],
+      "shutdownThreshold": 99,
+      "securitySheaf": [],
+      "files": [
+        {
+          "id": "cp-sl-file-scrolls-scans",
+          "name": "SCROLLS_AK_LEAR_SCANS.arc",
+          "description": "Digital scans of the five Scrolls of Ak'le'ar plus all associated magical research. The actual physical scrolls are in a warded display case in the same room.",
+          "sizeMp": 200,
+          "defense": "none",
+          "isPaydata": true,
+          "gmNotes": "Computers are off-line on arrival — must access physically on-site. No nuyen value assigned in source. Physical security: Rating 7 alarm ward on the room, Force 12 masking ward on the display case (Force 8 to penetrate), Rating 5 AOD tracking devices in each of the five physical scrolls, pressure plate in display case triggers room lockdown."
+        }
+      ],
+      "slaves": [],
+      "paydata": [],
+      "nextHostIds": [],
+      "specialFeatures": {}
+    }
+
+  ]
+}

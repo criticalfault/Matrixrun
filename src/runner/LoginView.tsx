@@ -118,10 +118,8 @@ export default function LoginView() {
   const [runPacketError, setRunPacketError] = useState('');
   const [characterError, setCharacterError] = useState('');
 
-  // .mxrun decrypt flow
-  const [pendingMxrunFile, setPendingMxrunFile] = useState<File | null>(null);
-  const [mxrunPassphrase, setMxrunPassphrase] = useState('');
-  const [mxrunDecrypting, setMxrunDecrypting] = useState(false);
+  // .mxrun load state
+  const [mxrunLoading, setMxrunLoading] = useState(false);
   const [mxrunError, setMxrunError] = useState('');
 
   // Source tracking and builder drawer
@@ -138,12 +136,17 @@ export default function LoginView() {
     setRunPacketSource(null);
 
     if (file.name.endsWith('.mxrun')) {
-      setPendingMxrunFile(file);
-      setMxrunPassphrase('');
+      setMxrunLoading(true);
       setMxrunError('');
+      importRunPacket(file).then(packet => {
+        setRunPacket(packet);
+        setRunPacketSource('mxrun');
+        setRunPacketName(file.name);
+      }).catch(e => {
+        setMxrunError(String(e).replace('Error: ', ''));
+      }).finally(() => setMxrunLoading(false));
     } else {
       // Plain JSON path
-      setPendingMxrunFile(null);
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
@@ -158,24 +161,6 @@ export default function LoginView() {
     }
   }
 
-  async function handleDecrypt() {
-    if (!pendingMxrunFile || !mxrunPassphrase) return;
-    setMxrunDecrypting(true);
-    setMxrunError('');
-    try {
-      const packet = await importRunPacket(pendingMxrunFile, mxrunPassphrase);
-      setRunPacket(packet);
-      setRunPacketSource('mxrun');
-      setRunPacketName(pendingMxrunFile.name);
-      setPendingMxrunFile(null);
-      setMxrunPassphrase('');
-    } catch (e) {
-      setMxrunError(String(e).replace('Error: ', ''));
-    } finally {
-      setMxrunDecrypting(false);
-    }
-  }
-
   function loadFromBuilder(id: string) {
     const draft = loadBuilderDraft(id);
     if (!draft) return;
@@ -183,7 +168,6 @@ export default function LoginView() {
     setRunPacketSource('builder');
     setRunPacketName(draft.name);
     setRunPacketError('');
-    setPendingMxrunFile(null);
     setBuilderDrawerOpen(false);
   }
 
@@ -264,9 +248,9 @@ export default function LoginView() {
             title="RUN PACKET"
             description="GM-exported run packet (.json or .mxrun)"
             fileName={runPacketName}
-            fileLabel={runPacket ? runPacket.name : (pendingMxrunFile ? pendingMxrunFile.name : null)}
+            fileLabel={runPacket ? runPacket.name : null}
             fileLabelNote={sourceBadge}
-            pendingDecrypt={pendingMxrunFile !== null}
+            pendingDecrypt={mxrunLoading}
             error={runPacketError}
             onClick={() => runPacketRef.current?.click()}
             onDrop={(e) => {
@@ -317,48 +301,12 @@ export default function LoginView() {
           />
         </div>
 
-        {/* Passphrase section — shown only when a .mxrun file is pending */}
-        {pendingMxrunFile !== null && (
-          <div
-            className="border p-4 flex flex-col gap-3"
-            style={{ borderColor: 'var(--color-accent, var(--color-primary))' }}
-          >
-            <div className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--color-accent, var(--color-primary))' }}>
-              Access Code Required
-            </div>
-            <div className="flex gap-2 items-center">
-              <input
-                type="password"
-                value={mxrunPassphrase}
-                onChange={(e) => setMxrunPassphrase(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleDecrypt(); }}
-                placeholder="Enter access code…"
-                disabled={mxrunDecrypting}
-                className="flex-1 bg-transparent border px-3 py-2 text-xs font-mono tracking-wider outline-none disabled:opacity-50"
-                style={{
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-foreground)',
-                }}
-              />
-              <button
-                onClick={handleDecrypt}
-                disabled={!mxrunPassphrase || mxrunDecrypting}
-                className="px-4 py-2 text-xs font-mono font-bold tracking-widest border transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: 'var(--color-accent, var(--color-primary))',
-                  color: 'var(--color-accent, var(--color-primary))',
-                  backgroundColor: 'color-mix(in srgb, var(--color-accent, var(--color-primary)) 10%, transparent)',
-                }}
-              >
-                {mxrunDecrypting ? 'Decrypting…' : '[ DECRYPT ]'}
-              </button>
-            </div>
-            {mxrunError && (
-              <div className="text-[11px]" style={{ color: '#ef4444' }}>
-                {mxrunError}
-              </div>
-            )}
-          </div>
+        {/* .mxrun load feedback */}
+        {mxrunLoading && (
+          <div className="text-[11px] text-[var(--color-muted-foreground)] italic">Loading run packet…</div>
+        )}
+        {mxrunError && (
+          <div className="text-[11px]" style={{ color: '#ef4444' }}>{mxrunError}</div>
         )}
 
         {/* Builder drawer */}

@@ -33,6 +33,8 @@ export type RunnerAction =
   | { type: 'DISCOVER_NEXT_HOSTS'; payload: { hostId: string; nextIds: string[] } }
   | { type: 'LOCATE_FILES';  payload: { hostId: string; fileIds:  string[] } }
   | { type: 'LOCATE_SLAVES'; payload: { hostId: string; slaveIds: string[] } }
+  | { type: 'EVADE_IC';      payload: { icId: string; turns: number } }
+  | { type: 'TICK_EVASION' }
   | { type: 'REVEAL_HOST_INFO';    payload: {
       hostId: string;
       securityRating?: boolean;
@@ -99,6 +101,7 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
         knownNextHosts: {},
         locatedFiles: {},
         locatedSlaves: {},
+        evadingIC: {},
         shutdownCountdown: undefined,
         knownHosts: buildKnownHosts(runPacket.hosts),
       };
@@ -118,14 +121,21 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
     case 'SPEND_POOL':
       return { ...state, hackingPoolUsed: state.hackingPoolUsed + action.payload };
 
-    case 'END_COMBAT_TURN':
+    case 'END_COMBAT_TURN': {
+      // Decrement evasion timers; expired ones drop out
+      const nextEvading: Record<string, number> = {};
+      for (const [id, turns] of Object.entries(state.evadingIC ?? {})) {
+        if (turns > 1) nextEvading[id] = turns - 1;
+      }
       return {
         ...state,
         hackingPoolUsed: 0,
         suppressionPool: 0,
         combatTurn: state.combatTurn + 1,
         combatPass: 1,
+        evadingIC: nextEvading,
       };
+    }
 
     case 'SET_SUPPRESSION_POOL':
       return { ...state, suppressionPool: action.payload };
@@ -274,6 +284,20 @@ function reducer(state: RunnerSession, action: RunnerAction): RunnerSession {
       return { ...state, locatedSlaves: { ...(state.locatedSlaves ?? {}), [hostId]: merged } };
     }
 
+    case 'EVADE_IC': {
+      const { icId, turns } = action.payload;
+      return { ...state, evadingIC: { ...(state.evadingIC ?? {}), [icId]: turns } };
+    }
+
+    case 'TICK_EVASION': {
+      const next: Record<string, number> = {};
+      for (const [id, turns] of Object.entries(state.evadingIC ?? {})) {
+        if (turns > 1) next[id] = turns - 1;
+        // turns === 1 → expires, not copied → IC re-appears
+      }
+      return { ...state, evadingIC: next };
+    }
+
     case 'SET_SAFEJACK':
       return { ...state, safejack: true };
 
@@ -337,6 +361,7 @@ const EMPTY_SESSION: RunnerSession = {
   knownNextHosts: {},
   locatedFiles: {},
   locatedSlaves: {},
+  evadingIC: {},
   knownHosts: {},
 };
 
